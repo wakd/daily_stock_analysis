@@ -61,7 +61,7 @@ function getBrowserUiLanguage(navigatorLike?: Pick<Navigator, 'language' | 'lang
     }
   }
 
-  return 'zh';
+  return 'en';
 }
 
 export function resolveInitialUiLanguage({
@@ -76,12 +76,14 @@ export function resolveInitialUiLanguage({
     return stored;
   }
 
-  return getBrowserUiLanguage(navigatorLike);
+  void navigatorLike;  // suppress TS6133 (kept for API compatibility)
+  void getBrowserUiLanguage;  // suppress TS6133 (kept for future use)
+  return 'en';  // Default to English (was: browser detection)
 }
 
 export function getRuntimeInitialLanguage(): UiLanguage {
   if (typeof window === 'undefined') {
-    return 'zh';
+    return 'en';
   }
 
   return resolveInitialUiLanguage({
