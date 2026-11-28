@@ -55,11 +55,10 @@ class PreparedMessage:
 
 @dataclass(frozen=True)
 class RendererPreset:
-    """Reserved renderer plan for one notification channel.
+    """Renderer capabilities and activation status for one notification channel.
 
-    Presets document the intended renderer shape without changing today's
-    runtime send path.  A future opt-in implementation can use these names to
-    wire platform-specific renderers while keeping the legacy text fallback.
+    The sender owns runtime dispatch. A disabled preset documents a planned
+    renderer; an enabled preset describes an active implementation.
     """
 
     channel: str
@@ -168,12 +167,13 @@ CHANNEL_PROFILES: Dict[str, ChannelProfile] = {
     "slack": ChannelProfile(
         channel="slack",
         markdown="mrkdwn",
-        default_mode="full_report",
+        default_mode="report_digest",
         max_text_chars=39000,
+        supports_card=True,
         supports_image=True,
         supports_file=True,
         supports_link=True,
-        notes="Slack sections should avoid splitting markdown blocks.",
+        notes="Recognized decision and market reports use compact Block Kit digests.",
     ),
     "astrbot": ChannelProfile(
         channel="astrbot",
@@ -228,8 +228,9 @@ CHANNEL_RENDERER_PRESETS: Dict[str, RendererPreset] = {
         text_renderer="slack_mrkdwn",
         markdown="mrkdwn",
         rich_renderer="slack_blocks",
+        enabled_by_default=True,
         image_renderer="png_poster",
-        notes="Preset only; current runtime keeps the legacy report text fallback.",
+        notes="The Slack sender includes accessible notification text alongside its blocks.",
     ),
 }
 

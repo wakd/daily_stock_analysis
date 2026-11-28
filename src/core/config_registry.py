@@ -2461,6 +2461,20 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "validation": {},
         "display_order": 39,
     },
+    "SLACK_REPORTS_URL": {
+        "title": "Slack report history URL",
+        "description": "Optional website where Slack readers can open the full reports.",
+        "category": "notification",
+        "data_type": "string",
+        "ui_control": "text",
+        "is_sensitive": False,
+        "is_required": False,
+        "is_editable": True,
+        "default_value": None,
+        "options": [],
+        "validation": {},
+        "display_order": 39,
+    },
     # ------------------------------------------------------------------
     # Notification – Pushover
     # ------------------------------------------------------------------
@@ -4998,6 +5012,12 @@ _FIELD_HELP_METADATA: Dict[str, Dict[str, Any]] = {
         "examples": [
             "SLACK_CHANNEL_ID=C0123456789",
         ],
+        "docs": _DOC_FULL_GUIDE_NOTIFICATION,
+        "warning_codes": [],
+    },
+    "SLACK_REPORTS_URL": {
+        "help_key": "settings.notification.chat_bots",
+        "examples": ["SLACK_REPORTS_URL=https://analysis.example.com/"],
         "docs": _DOC_FULL_GUIDE_NOTIFICATION,
         "warning_codes": [],
     },

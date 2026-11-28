@@ -171,6 +171,7 @@ CHANNEL_SPECS: Tuple[NotificationChannelSpec, ...] = (
         kind="configured",
         minimal_keys=("SLACK_WEBHOOK_URL",),
         alternative_minimal_keys=(("SLACK_BOT_TOKEN", "SLACK_CHANNEL_ID"),),
+        advanced_keys=("SLACK_REPORTS_URL",),
         note="Webhook URL or bot token + channel ID can enable Slack.",
     ),
     NotificationChannelSpec(

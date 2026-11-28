@@ -90,6 +90,7 @@ daily_stock_analysis/
 | `SLACK_BOT_TOKEN` | Slack Bot Token（推荐，支持图片上传；同时配置时优先于 Webhook） | 可选 |
 | `SLACK_CHANNEL_ID` | Slack Channel ID（使用 Bot 时需要） | 可选 |
 | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL（仅文本，不支持图片） | 可选 |
+| `SLACK_REPORTS_URL` | 在 Slack 摘要中打开完整报告历史的地址 | 可选 |
 | `EMAIL_SENDER` | 发件人邮箱（如 `xxx@qq.com`） | 可选 |
 | `EMAIL_PASSWORD` | 邮箱授权码（非登录密码） | 可选 |
 | `EMAIL_RECEIVERS` | 收件人邮箱（多个用逗号分隔，留空则发给自己） | 可选 |
@@ -327,6 +328,7 @@ daily_stock_analysis/
 | `SLACK_BOT_TOKEN` | Slack Bot Token（推荐，支持图片上传；同时配置时优先于 Webhook） | 可选 |
 | `SLACK_CHANNEL_ID` | Slack Channel ID（使用 Bot 时需要） | 可选 |
 | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL（仅文本，不支持图片） | 可选 |
+| `SLACK_REPORTS_URL` | 在 Slack 摘要中打开完整报告历史的地址 | 可选 |
 | `EMAIL_SENDER` | 发件人邮箱 | 可选 |
 | `EMAIL_PASSWORD` | 邮箱授权码（非登录密码） | 可选 |
 | `EMAIL_RECEIVERS` | 收件人邮箱（逗号分隔，留空发给自己） | 可选 |
@@ -1318,6 +1320,8 @@ DISCORD_INTERACTIONS_PUBLIC_KEY=your_public_key
 未配置该公钥时，系统会拒绝所有 Discord 入站 webhook 请求。
 
 ### Slack
+
+个股决策摘要按实际操作建议归类，展示股票代码与评分。大盘复盘列出市场信号、指数变动和主要风险。设置 `SLACK_REPORTS_URL` 后，读者可从通知中打开完整报告历史。
 
 Slack 支持两种方式推送，同时配置时优先使用 Bot API，确保文本与图片发送到同一频道：
 

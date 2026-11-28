@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from src.config import Config
 from src.formatters import utf16_len
+from src.notification_sender.slack_sender import build_slack_payloads
 from src.notification_sender import (
     AstrbotSender,
     CustomWebhookSender,
@@ -1745,16 +1746,16 @@ class TestSlackSender(unittest.TestCase):
         self.assertFalse(result)
 
     def test_build_blocks_splits_long_content(self):
-        cfg = _config(slack_webhook_url="https://hooks.slack.com/services/T/B/xxx")
-        sender = SlackSender(cfg)
         content = "A" * 6500  # > 3000 * 2, should produce 3 blocks
-        blocks = sender._build_blocks(content)
+        payload, = build_slack_payloads(content)
+        blocks = payload["blocks"]
         self.assertEqual(len(blocks), 3)
+        self.assertEqual("".join(b["text"]["text"] for b in blocks), content)
         self.assertEqual(blocks[0]["type"], "section")
         self.assertEqual(blocks[0]["text"]["type"], "mrkdwn")
 
     @mock.patch("src.notification_sender.slack_sender.requests.post")
-    def test_send_preserves_legacy_text_payload(self, mock_post):
+    def test_generic_text_has_slack_formatting_and_accessible_links(self, mock_post):
         resp = mock.MagicMock()
         resp.status_code = 200
         resp.text = "ok"
@@ -1766,8 +1767,9 @@ class TestSlackSender(unittest.TestCase):
 
         self.assertTrue(result)
         payload = json.loads(mock_post.call_args.kwargs["data"].decode("utf-8"))
-        self.assertIn("## 日报", payload["text"])
-        self.assertIn("[详情](https://example.com/report)", payload["text"])
+        self.assertEqual(payload["text"], "日报\n\n详情 (https://example.com/report)")
+        self.assertIn("<https://example.com/report|详情>", payload["blocks"][0]["text"]["text"])
+        self.assertFalse(payload["mrkdwn"])
 
     @mock.patch("src.notification_sender.slack_sender.requests.post")
     def test_send_strips_hidden_market_region_metadata_from_text_payload(self, mock_post):
@@ -1783,8 +1785,48 @@ class TestSlackSender(unittest.TestCase):
         self.assertTrue(result)
         payload = json.loads(mock_post.call_args.kwargs["data"].decode("utf-8"))
         self.assertNotIn("[dsa-market-region]", payload["text"])
-        self.assertIn("# 🎯 Market Review", payload["text"])
+        self.assertIn("🎯 Market Review", payload["text"])
         self.assertIn("Body", payload["text"])
+
+    @mock.patch("src.notification_sender.slack_sender.requests.post")
+    def test_merged_report_posts_once_with_both_digests_and_one_history_link(self, post):
+        market = ("# 🎯 Market Review\n\n## 2026-11-25 US Market Recap\n\n"
+                  "### 1. Market Summary\n\nThe Dow advanced as the Nasdaq fell.\n\n"
+                  "- **Market Signal**: 48/100 (mixed, balanced)")
+        stocks = ("# 🎯 2026-11-25 Decision Dashboard\n\nAnalyzed **2** stocks\n\n"
+                  "## Summary\n\n⚪ **Vanguard(VOO)**: Watch | Score 44 | Bearish\n"
+                  "🟠 **Micron(MU)**: Reduce | Score 31 | Strong Bearish")
+        content = f"# 📈 大盘复盘\n\n{market}\n\n---\n\n# 🚀 个股决策仪表盘\n\n{stocks}"
+        link = "https://example.com/history"
+        for cfg in (_config(slack_webhook_url="https://hooks.slack.com/services/T/B/xxx"),
+                    _config(slack_bot_token="xoxb-test", slack_channel_id="C123")):
+            cfg.slack_reports_url = link
+            post.reset_mock()
+            post.return_value = _response(200, {"ok": True})
+            self.assertTrue(SlackSender(cfg).send_to_slack(content))
+            post.assert_called_once()
+            payload = json.loads(post.call_args.kwargs["data"])
+            self.assertEqual(len([b for b in payload["blocks"] if b["type"] == "header"]), 2)
+            self.assertEqual(payload["text"].count(link), 1)
+            self.assertEqual(json.dumps(payload["blocks"]).count(link), 1)
+            for value in ("48/100", "VOO", "MU", "Reduce"):
+                self.assertIn(value, payload["text"])
+            self.assertNotIn("1/1", payload["text"])
+            self.assertNotIn("大盘复盘", payload["text"])
+
+    def test_invalid_history_links_are_omitted_and_mentions_stay_literal(self):
+        content = ("# 2026-11-25 US Market Recap\n\n"
+                   "### Market Summary\n\nMixed trading.\n- **Market Signal**: 48/100")
+        for url in ("", "javascript:alert(1)", "/relative", "https://user@site.example/",
+                    "https://site.example/\n", "https://site.example/|<!channel>",
+                    "https://site.example:65536", "https://bad^host.example"):
+            with self.subTest(url=url):
+                payload, = build_slack_payloads(content, reports_url=url)
+                self.assertEqual(payload["blocks"][0]["type"], "header")
+                self.assertNotIn("Open report history", payload["text"])
+        notice, = build_slack_payloads("Test <!channel> & A < B")
+        self.assertEqual(notice["text"], "Test <!channel> & A < B")
+        self.assertIn("&lt;!channel&gt;", notice["blocks"][0]["text"]["text"])
 
     @mock.patch("src.notification_sender.slack_sender.requests.post")
     def test_send_preserves_standard_markdown_reference_definitions(self, mock_post):

@@ -88,6 +88,7 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 | `SLACK_BOT_TOKEN` | Slack Bot Token (recommended, supports image upload; takes priority over Webhook when both set) | Optional |
 | `SLACK_CHANNEL_ID` | Slack Channel ID (required when using Bot) | Optional |
 | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL (text only, no image support) | Optional |
+| `SLACK_REPORTS_URL` | Report history URL for the link in Slack digests | Optional |
 | `EMAIL_SENDER` | Sender email (e.g., `xxx@qq.com`) | Optional |
 | `EMAIL_PASSWORD` | Email authorization code (not login password) | Optional |
 | `EMAIL_RECEIVERS` | Receiver emails (comma-separated, leave empty to send to self) | Optional |
@@ -291,6 +292,7 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 | `SLACK_BOT_TOKEN` | Slack Bot Token (recommended, supports image upload; takes priority over Webhook when both set) | Optional |
 | `SLACK_CHANNEL_ID` | Slack Channel ID (required when using Bot) | Optional |
 | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL (text only, no image support) | Optional |
+| `SLACK_REPORTS_URL` | Report history URL for the link in Slack digests | Optional |
 | `EMAIL_SENDER` | Sender email | Optional |
 | `EMAIL_PASSWORD` | Email authorization code (not login password) | Optional |
 | `EMAIL_RECEIVERS` | Receiver emails (comma-separated, leave empty to send to self) | Optional |
@@ -1204,6 +1206,8 @@ DISCORD_INTERACTIONS_PUBLIC_KEY=your_public_key
 Without this public key, inbound Discord webhook requests are rejected.
 
 ### Slack
+
+Decision dashboard messages group stocks by the reported action and show each ticker’s score. Market recaps show the signal, benchmark moves and key risks. Set `SLACK_REPORTS_URL` to the report history page to include an **Open report history** link in these messages.
 
 Slack supports two push methods. When both are configured, Bot API takes priority to ensure text and images land in the same channel:
 

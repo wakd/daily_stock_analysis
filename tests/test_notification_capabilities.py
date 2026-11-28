@@ -35,7 +35,7 @@ class NotificationCapabilityProfileTestCase(unittest.TestCase):
     def test_core_channels_keep_full_report_defaults(self):
         self.assertEqual(CHANNEL_PROFILES["feishu"].default_mode, "full_report")
         self.assertEqual(CHANNEL_PROFILES["telegram"].default_mode, "full_report")
-        self.assertEqual(CHANNEL_PROFILES["slack"].default_mode, "full_report")
+        self.assertEqual(CHANNEL_PROFILES["slack"].default_mode, "report_digest")
         self.assertEqual(CHANNEL_PROFILES["wechat"].default_mode, "full_report")
         self.assertEqual(CHANNEL_PROFILES["email"].default_mode, "full_html")
 
@@ -56,13 +56,13 @@ class NotificationCapabilityProfileTestCase(unittest.TestCase):
         self.assertEqual(normalize_channel_name(None), "unknown")
         self.assertEqual(normalize_channel_name("  Telegram  "), "telegram")
 
-    def test_renderer_presets_are_reserved_and_disabled_by_default(self):
+    def test_rich_renderer_presets_are_enabled_only_for_implemented_channels(self):
         preset_channels = {preset.channel for preset in all_renderer_presets()}
 
         self.assertTrue({"wechat", "feishu", "telegram", "slack", "dingtalk"}.issubset(preset_channels))
         self.assertEqual(CHANNEL_RENDERER_PRESETS["feishu"].rich_renderer, "feishu_interactive_card")
         self.assertEqual(CHANNEL_RENDERER_PRESETS["telegram"].markdown, "markdown_v2")
-        self.assertTrue(all(not preset.enabled_by_default for preset in all_renderer_presets()))
+        self.assertEqual({p.channel for p in all_renderer_presets() if p.enabled_by_default}, {"slack"})
 
     def test_get_renderer_preset_accepts_enum_or_string(self):
         self.assertEqual(get_renderer_preset(NotificationChannel.WECHAT).text_renderer, "wecom_markdown")
