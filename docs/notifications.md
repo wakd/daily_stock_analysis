@@ -41,7 +41,7 @@ Discord 长报告发送复用现有分片链路：单条 `content` 运行时不�
 
 ## 报告渲染与分片
 
-Slack 文本通知使用原生 Block Kit 摘要。个股决策按逐股建议统计，区分减仓与卖出；大盘复盘保留市场信号、主要指数与风险。预览通知和屏幕阅读器使用纯文本摘要。可通过 `SLACK_REPORTS_URL` 指定报告历史页。图片推送仍由现有图片设置控制。
+Slack 文本通知使用原生 Block Kit 摘要。个股决策按逐股建议统计，区分减仓与卖出；大盘复盘保留市场信号、主要指数与风险。预览通知和屏幕阅读器使用纯文本摘要。通过 `SLACK_REPORTS_URL` 配置本应用的公开地址，新通知将链接到该次报告。通过 `TERMINAL_CHART_URL` 可配置终端图表链接。图片推送仍由现有图片设置控制。
 
 飞书、Telegram 和企业微信继续使用各自的转换与分片规则。飞书 App Bot 支持 `send_feishu_file()` 文件推送，Webhook 模式回退为文件内容文本。
 - `model_used` 只在报告渲染末尾展示，不参与 provider/model/base_url 的 runtime 选择、保存、清理或迁移。若某次 CI 扫描到“provider/API 兼容迁移”类关键词，命中范围应优先回归到测试夹具中的 `model_used` 示例与报告快照 fixture（`tests/fixtures/notification_reports/*.md`），以及 `src/notification.py` 对 `report_show_llm_model` 的仅展示开关逻辑。
@@ -99,6 +99,7 @@ Slack 文本通知使用原生 Block Kit 摘要。个股决策按逐股建议统
 | `SLACK_BOT_TOKEN` | minimal | slack | Secret | - |
 | `SLACK_CHANNEL_ID` | minimal | slack | Secret | - |
 | `SLACK_REPORTS_URL` | advanced | slack | Variable | - |
+| `TERMINAL_CHART_URL` | advanced | slack | Variable | - |
 | `NOTIFICATION_REPORT_CHANNELS` | advanced | routing | Variable or Secret | - |
 | `NOTIFICATION_ALERT_CHANNELS` | advanced | routing | Variable or Secret | - |
 | `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | advanced | routing | Variable or Secret | - |

@@ -337,6 +337,19 @@ class ScreeningRun(Base):
     )
 
 
+class ReportPublication(Base):
+    """The exact body and point-in-time comparison for a published report."""
+    __tablename__ = 'report_publications'
+
+    id = Column(String(32), primary_key=True)
+    series = Column(String(96), nullable=False, index=True)
+    created_at = Column(DateTime, default=utc_naive_now, nullable=False, index=True)
+    as_of = Column(String(10), nullable=False)
+    title = Column(String(180), nullable=False)
+    markdown = Column(Text, nullable=False)
+    details_json = Column(Text, nullable=False)
+
+
 class AnalysisHistory(Base):
     """
     分析结果历史记录模型

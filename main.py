@@ -802,7 +802,9 @@ def _market_review_report_text(review_result: Any) -> str:
         return ""
     report = getattr(review_result, "report", None)
     if isinstance(report, str):
-        return report
+        from src.services.report_publications import marked
+        run_id = getattr(review_result, "publication_id", None)
+        return marked(report, run_id) if isinstance(run_id, str) else report
     return review_result if isinstance(review_result, str) else ""
 
 
@@ -1154,6 +1156,12 @@ def run_full_analysis(
             )
             if can_skip_market_review:
                 market_report = market_context_full_report or market_context_summary
+                from src.services.report_publications import marked, publish_market
+                report_language = getattr(config, "report_language", "en")
+                recycled_payload = {"region": market_review_region, "language": report_language}
+                market_report = marked(market_report, publish_market(
+                    market_report, query_id, recycled_payload,
+                ))
                 logger.info(
                     "复盘上下文可复用，跳过重复大盘复盘并复用上下文内容。"
                 )

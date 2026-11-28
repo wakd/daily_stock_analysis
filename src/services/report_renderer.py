@@ -38,6 +38,7 @@ from src.report_language import (
 from src.schemas.decision_action import (
     display_action_fields_for_result,
     display_decision_type_for_result,
+    rating_summary,
     display_operation_advice_for_result,
     localize_action_label,
 )
@@ -218,6 +219,7 @@ def render(
         "results": sorted_results,
         "enriched": sorted_enriched,  # Sorted by sentiment_score desc
         "summary_only": summary_only,
+        "rating_summary": rating_summary(sorted_results, report_language),
         "buy_count": buy_count,
         "sell_count": sell_count,
         "hold_count": hold_count,

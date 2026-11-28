@@ -20,6 +20,8 @@ from src.config import Config
 from src.formatters import format_slack_mrkdwn, strip_hidden_markdown_metadata
 from src.notification_sender.slack_market_digest import build_market_digest
 from src.notification_sender.slack_stock_digest import build_stock_digest
+from src.notification_sender.slack_blocks import context
+from src.services.report_publications import RUN_MARKER, chart_links, link, publication, quote_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +95,64 @@ def _report_payload(digests: list, reports_url: str, language: Optional[str]) ->
     return {"text": "\n\n".join(fallbacks), "blocks": blocks}
 
 
-def build_slack_payloads(content: str, *, reports_url: str = "", language: Optional[str] = None) -> list[dict]:
+def _published_digest(digest, record, reports_url, terminal_url):
+    fallback, blocks = digest
+    language = record.get('language')
+    words = {
+        'zh': ('发布于', '与覆盖相同标的的上次报告比较', '评分未变', '打开此报告', '图表', '报价时间未知', '最旧报价', '基准代理'),
+        'ko': ('발행', '동일 종목 범위의 직전 보고서 대비', '평가 변동 없음', '이 보고서 열기', '차트', '시세 시각 미상', '가장 오래된 시세', '벤치마크 대용'),
+        'en': ('Published', 'Since previous report with matching coverage', 'Ratings unchanged', 'Open this report', 'Charts',
+               'quote time unreported', 'oldest quote', 'benchmark proxy'),
+    }
+    words = words.get(language, words['en'])
+    published, since, unchanged, open_label, chart_label, unknown_age, oldest, proxy = words
+    info = [f"{published} {record['generated_at'][:16].replace('T', ' ')} UTC"]
+    if record.get('previous_id') and (record['stocks'] or record.get('signals')):
+        changes = record.get('changes') or []
+        line = ' · '.join(changes[:4]) if changes else unchanged
+        if len(changes) > 4:
+            line += f" (+{len(changes) - 4})"
+        info.append(f"{since} · {line}")
+    evidence = quote_evidence(record['stocks'], record['generated_at'])
+    if evidence:
+        providers = sorted({q['source'] for q in evidence if q['source']})
+        ages = [q['age_minutes'] for q in evidence if q['age_minutes'] is not None]
+        coverage = [', '.join(providers[:3])] if providers else []
+        if ages:
+            coverage.append(f"{oldest} {max(ages)} min")
+        if len(ages) < len(evidence):
+            coverage.append(f"{unknown_age} {len(evidence)-len(ages)}/{len(evidence)}")
+        for status in ('stale', 'missing', 'unavailable'):
+            affected = sum(q['status'] == status for q in evidence)
+            if affected:
+                coverage.append(f"{status} {affected}/{len(evidence)}")
+        if coverage:
+            info.append(' · '.join(coverage))
+    info_text = '\n'.join(info)
+    blocks = [blocks[0], context(info_text), *blocks[1:]]
+    fallback += '\n\n' + info_text
+    destinations = []
+    exact = link(reports_url, report=record['id'])
+    if exact:
+        destinations.append((open_label, exact))
+    charts = chart_links(record, _history_url(terminal_url))
+    for ticker, url in list(charts.items())[:8]:
+        label = f"{ticker} ({proxy})" if record['kind'] == 'market' else ticker
+        destinations.append((f"{chart_label} · {label}", url))
+    if destinations:
+        native = '   '.join(f"<{html.escape(u, quote=False)}|{html.escape(label)}>" for label, u in destinations)
+        # A single context element is limited to 2000 characters.
+        if len(native) > 1900:
+            label, url = destinations[0]
+            native = f"<{html.escape(url, quote=False)}|{html.escape(label)}>"
+        blocks.append({'type': 'context', 'elements': [{'type': 'mrkdwn', 'verbatim': True, 'text': native}]})
+        if exact:
+            fallback += f"\n{open_label}: {exact}"
+    return fallback, blocks
+
+
+def build_slack_payloads(content: str, *, reports_url: str = "", language: Optional[str] = None,
+                         publications: Optional[dict] = None, terminal_url: str = "") -> list[dict]:
     """Build complete text notifications without contacting Slack."""
     clean = content.replace("\r\n", "\n").strip()
     if not clean:
@@ -106,16 +165,34 @@ def build_slack_payloads(content: str, *, reports_url: str = "", language: Optio
         parts = [clean[len(_STOCK_WRAPPER):]]
 
     history = _history_url(reports_url)
-    digests = [build_stock_digest(strip_hidden_markdown_metadata(part)) or build_market_digest(part) for part in parts]
+    digests = []
+    resolved = []
+    for part in parts:
+        run_ids = RUN_MARKER.findall(part)
+        record = (publications or {}).get(run_ids[-1]) if run_ids else None
+        # A retry or another channel may render the same run again; the notification must
+        # describe the saved body to which its link points.
+        source = record.get('markdown') if record else None
+        text = RUN_MARKER.sub('', source or part).strip()
+        digest = build_stock_digest(strip_hidden_markdown_metadata(text)) or build_market_digest(text)
+        if record and not digest:
+            # Even an unfamiliar report layout retains an exact link to its full contents.
+            from src.notification_sender.slack_blocks import header, section
+            excerpt = strip_hidden_markdown_metadata(text).strip()[:950]
+            digest = (excerpt, [header(record['title']), section(excerpt or record['title'])])
+        if digest and record:
+            digest = _published_digest(digest, record, history, terminal_url)
+        digests.append(digest)
+        resolved.append(bool(record))
     if all(digests):
-        return [_report_payload(digests, history, language)]
+        return [_report_payload(digests, "" if all(resolved) else history, language)]
     if not any(digests):
         parts, digests = [clean], [None]
 
     payloads = []
     for index, (part, digest) in enumerate(zip(parts, digests)):
         if digest:
-            payloads.append(_report_payload([digest], history, language))
+            payloads.append(_report_payload([digest], "" if resolved[index] else history, language))
             continue
         # Preserve unrecognized alerts, diagnostics and report formats in full.
         # Escape user/LLM-provided Slack control sequences before formatting Markdown.
@@ -153,6 +230,7 @@ class SlackSender:
         self._slack_channel_id = getattr(config, 'slack_channel_id', None)
         self._webhook_verify_ssl = getattr(config, 'webhook_verify_ssl', True)
         self._slack_reports_url = getattr(config, 'slack_reports_url', None)
+        self._terminal_url = getattr(config, 'terminal_chart_url', None)
         self._slack_report_language = getattr(config, 'report_language', None)
 
     @property
@@ -180,8 +258,15 @@ class SlackSender:
         if not self._is_slack_configured():
             logger.warning("Slack 配置不完整，跳过推送")
             return False
+        records = {}
+        for run_id in set(RUN_MARKER.findall(content)):
+            try:
+                records[run_id] = publication(run_id)
+            except Exception:
+                logger.warning("Published report lookup failed; using standard Slack report", exc_info=True)
         payloads = build_slack_payloads(
             content, reports_url=self._slack_reports_url, language=self._slack_report_language,
+            publications=records, terminal_url=self._terminal_url,
         )
         if not payloads:
             logger.warning("Slack 消息内容为空，跳过推送")

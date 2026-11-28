@@ -1207,7 +1207,7 @@ Without this public key, inbound Discord webhook requests are rejected.
 
 ### Slack
 
-Decision dashboard messages group stocks by the reported action and show each ticker’s score. Market recaps show the signal, benchmark moves and key risks. Set `SLACK_REPORTS_URL` to the report history page to include an **Open report history** link in these messages.
+Decision dashboard messages group stocks by the reported action and show each ticker’s score. Market recaps show the signal, benchmark moves and key risks. Set `SLACK_REPORTS_URL` to the public analysis app. New publications open the exact archived run at `/?report=ID`, with a publication timestamp and changes from the preceding report with the same ticker set or market coverage, format and language. Set `TERMINAL_CHART_URL` to the PM terminal (for example `https://pmtool.example.com/terminal/`) for ticker and report-date chart links. The dashboard links to published runs and older individual reports. Quote age uses provider observation time at publication; missing times are shown explicitly.
 
 Slack supports two push methods. When both are configured, Bot API takes priority to ensure text and images land in the same channel:
 

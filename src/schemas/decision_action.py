@@ -485,6 +485,23 @@ def display_operation_advice_for_result(
     return localize_operation_advice(getattr(result, "operation_advice", None), language)
 
 
+def rating_counts(results, language):
+    """Count the localized labels shown in the individual report rows."""
+    counts = {}
+    priorities = {}
+    order = {'sell': 0, 'reduce': 1, 'alert': 2, 'avoid': 3, 'watch': 4, 'hold': 5, 'buy': 6, 'add': 7}
+    for result in results:
+        fields = display_action_fields_for_result(result, report_language=language)
+        label = fields['action_label'] or display_operation_advice_for_result(result, report_language=language)
+        counts[label] = counts.get(label, 0) + 1
+        priorities[label] = order.get(fields['action'], len(order))
+    return {label: counts[label] for label in sorted(counts, key=lambda label: (priorities[label], label))}
+
+
+def rating_summary(results, language):
+    return " · ".join(f"{label}:{count}" for label, count in rating_counts(results, language).items())
+
+
 def display_decision_type_for_result(
     result: Any,
     *,

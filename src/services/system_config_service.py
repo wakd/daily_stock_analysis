@@ -273,6 +273,7 @@ class SystemConfigService:
         "SLACK_BOT_TOKEN": ("slack_bot_token", "string"),
         "SLACK_CHANNEL_ID": ("slack_channel_id", "string"),
         "SLACK_REPORTS_URL": ("slack_reports_url", "string"),
+        "TERMINAL_CHART_URL": ("terminal_chart_url", "string"),
         "ASTRBOT_URL": ("astrbot_url", "string"),
         "ASTRBOT_TOKEN": ("astrbot_token", "string"),
     }

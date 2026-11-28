@@ -2475,6 +2475,20 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "validation": {},
         "display_order": 39,
     },
+    "TERMINAL_CHART_URL": {
+        "title": "Terminal charts URL",
+        "description": "Optional PM terminal URL for charts linked to a specific report, symbol and date.",
+        "category": "notification",
+        "data_type": "string",
+        "ui_control": "text",
+        "is_sensitive": False,
+        "is_required": False,
+        "is_editable": True,
+        "default_value": None,
+        "options": [],
+        "validation": {},
+        "display_order": 39,
+    },
     # ------------------------------------------------------------------
     # Notification – Pushover
     # ------------------------------------------------------------------
@@ -5018,6 +5032,12 @@ _FIELD_HELP_METADATA: Dict[str, Dict[str, Any]] = {
     "SLACK_REPORTS_URL": {
         "help_key": "settings.notification.chat_bots",
         "examples": ["SLACK_REPORTS_URL=https://analysis.example.com/"],
+        "docs": _DOC_FULL_GUIDE_NOTIFICATION,
+        "warning_codes": [],
+    },
+    "TERMINAL_CHART_URL": {
+        "help_key": "settings.notification.chat_bots",
+        "examples": ["TERMINAL_CHART_URL=https://pmtool.example.com/terminal/"],
         "docs": _DOC_FULL_GUIDE_NOTIFICATION,
         "warning_codes": [],
     },

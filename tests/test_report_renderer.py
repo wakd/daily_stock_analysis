@@ -80,7 +80,7 @@ class TestReportRenderer(unittest.TestCase):
         self.assertIn("决策仪表盘", out)
         self.assertIn("贵州茅台", out)
         self.assertIn("买入", out)
-        self.assertIn("🟢买入:1", out)
+        self.assertIn("买入:1", out)
 
     def test_render_markdown_preserves_guardrailed_neutral_action(self) -> None:
         r = _make_result(
@@ -94,7 +94,7 @@ class TestReportRenderer(unittest.TestCase):
 
         self.assertIsNotNone(out)
         self.assertIn("持有", out)
-        self.assertIn("🟡观望:1", out)
+        self.assertIn("持有:1", out)
 
     def test_render_markdown_uses_explicit_avoid_and_alert_text(self) -> None:
         avoid = _make_result(

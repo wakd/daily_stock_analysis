@@ -1209,6 +1209,7 @@ class Config:
 
     # Slack 通知配置
     slack_webhook_url: Optional[str] = None  # Slack Incoming Webhook URL
+    terminal_chart_url: Optional[str] = None  # Public PM terminal chart URL
     slack_reports_url: Optional[str] = None  # Optional link to the reader's report history
     slack_bot_token: Optional[str] = None  # Slack Bot Token (xoxb-...)
     slack_channel_id: Optional[str] = None  # Slack 频道 ID (Bot 模式必填)
@@ -2210,6 +2211,7 @@ class Config:
             discord_interactions_public_key=os.getenv('DISCORD_INTERACTIONS_PUBLIC_KEY'),
             slack_webhook_url=os.getenv('SLACK_WEBHOOK_URL'),
             slack_reports_url=os.getenv('SLACK_REPORTS_URL'),
+            terminal_chart_url=os.getenv('TERMINAL_CHART_URL'),
             slack_bot_token=os.getenv('SLACK_BOT_TOKEN'),
             slack_channel_id=os.getenv('SLACK_CHANNEL_ID'),
             astrbot_url=os.getenv('ASTRBOT_URL'),

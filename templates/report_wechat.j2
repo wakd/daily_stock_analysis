@@ -1,6 +1,6 @@
 ## 🎯 {{ report_date }} {{ labels.dashboard_title }}
 
-> {{ results|length }} {{ labels.stock_unit }} | 🟢{{ labels.buy_label }}:{{ buy_count }} 🟡{{ labels.watch_label }}:{{ hold_count }} 🔴{{ labels.sell_label }}:{{ sell_count }}
+> {{ results|length }} {{ labels.stock_unit }} | {{ rating_summary }}
 {% if market_status_line %}
 {{ market_status_line }}
 {% endif %}

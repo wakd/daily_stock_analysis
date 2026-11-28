@@ -817,7 +817,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_brief_report([result], report_date="2026-07-11")
 
-        self.assertIn("🟢1 🟡0 🔴0", out)
+        self.assertIn("Buy:1", out)
         self.assertIn("Buy | Score 72", out)
         self.assertNotIn("Hold | Score 72", out)
 

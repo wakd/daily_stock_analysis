@@ -57,6 +57,7 @@ class MarketReviewRunResult:
 
     report: str
     market_review_payload: Dict[str, Any] = field(default_factory=dict)
+    publication_id: Optional[str] = None
 
 
 def _refresh_market_review_history_diagnostics(*, query_id: str) -> None:
@@ -314,6 +315,12 @@ def run_market_review(
                 market_review_payload,
                 review_report=review_report,
             )
+            from src.services.report_publications import marked, publish_market
+            run_id = publish_market(markdown_report, history_query_id, market_review_payload) if (
+                persist_history or save_report_file or send_notification
+            ) else None
+            markdown_report = marked(markdown_report, run_id)
+            merge_markdown_report = marked(merge_markdown_report, run_id)
             if save_report_file:
                 # 保存报告到文件
                 date_str = datetime.now().strftime('%Y%m%d')
@@ -377,7 +384,7 @@ def run_market_review(
                     supports_payload = False
                 if supports_payload:
                     send_kwargs["structured_payload"] = market_review_payload
-                success = notifier.send(report_content, **send_kwargs)
+                success = notifier.send(marked(report_content, run_id), **send_kwargs)
                 _record_market_review_notification_run(
                     query_id=history_query_id,
                     channel="report",
@@ -435,6 +442,7 @@ def run_market_review(
                 return MarketReviewRunResult(
                     report=review_report,
                     market_review_payload=market_review_payload,
+                    publication_id=run_id,
                 )
             if merge_notification:
                 return merge_markdown_report

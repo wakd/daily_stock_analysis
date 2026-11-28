@@ -57,7 +57,8 @@ from src.report_language import (
 )
 from src.schemas.decision_action import (
     display_action_fields_for_result,
-    display_decision_type_for_result,
+    rating_counts,
+    rating_summary,
     display_operation_advice_for_result,
 )
 from bot.models import BotMessage
@@ -445,8 +446,11 @@ class NotificationService(
         """Generate the aggregate report content used by merge/save/push paths."""
         normalized_type = self._normalize_report_type(report_type)
         if normalized_type == ReportType.BRIEF:
-            return self.generate_brief_report(results, report_date=report_date)
-        return self.generate_dashboard_report(results, report_date=report_date)
+            content = self.generate_brief_report(results, report_date=report_date)
+        else:
+            content = self.generate_dashboard_report(results, report_date=report_date)
+        from src.services.report_publications import publish_stocks
+        return publish_stocks(content, results, self._get_report_language(results), normalized_type.value)
 
     def _collect_models_used(self, results: List[AnalysisResult]) -> List[str]:
         if not self._should_show_llm_model():
@@ -936,7 +940,6 @@ class NotificationService(
             reverse=True
         )
 
-        buy_count, sell_count, hold_count = self._count_display_decisions(results, report_language)
         avg_score = sum(r.sentiment_score for r in results) / len(results) if results else 0
 
         report_lines.extend([
@@ -944,9 +947,8 @@ class NotificationService(
             "",
             "| 指标 | 数值 |",
             "|------|------|",
-            f"| 🟢 {labels['buy_label']} | **{buy_count}** {labels['stock_unit_compact']} |",
-            f"| 🟡 {labels['watch_label']} | **{hold_count}** {labels['stock_unit_compact']} |",
-            f"| 🔴 {labels['sell_label']} | **{sell_count}** {labels['stock_unit_compact']} |",
+            *(f"| {label} | **{count}** {labels['stock_unit_compact']} |"
+              for label, count in rating_counts(results, report_language).items()),
             f"| 📈 {labels['avg_score_label']} | **{avg_score:.1f}** |",
             "",
             "---",
@@ -1209,21 +1211,6 @@ class NotificationService(
             report_language=report_language or self._get_report_language(result),
         )
 
-    def _count_display_decisions(
-        self,
-        results: List[AnalysisResult],
-        report_language: Optional[str] = None,
-    ) -> Tuple[int, int, int]:
-        language = report_language or self._get_report_language(results)
-        buckets = [
-            display_decision_type_for_result(result, report_language=language)
-            for result in results
-        ]
-        buy_count = sum(1 for bucket in buckets if bucket == "buy")
-        sell_count = sum(1 for bucket in buckets if bucket == "sell")
-        hold_count = len(buckets) - buy_count - sell_count
-        return buy_count, sell_count, hold_count
-
     def _get_signal_level(self, result: AnalysisResult) -> tuple:
         """Get display text and signal metadata from the resolved action."""
         report_language = self._get_report_language(result)
@@ -1307,13 +1294,13 @@ class NotificationService(
         # 按评分排序（高分在前）
         sorted_results = sorted(results, key=lambda x: x.sentiment_score, reverse=True)
 
-        buy_count, sell_count, hold_count = self._count_display_decisions(results, report_language)
+        summary_counts = rating_summary(results, report_language)
 
         report_lines = [
             f"# 🎯 {report_date} {labels['dashboard_title']}",
             "",
             f"> {labels['analyzed_prefix']} **{len(results)}** {labels['stock_unit']} | "
-            f"🟢{labels['buy_label']}:{buy_count} 🟡{labels['watch_label']}:{hold_count} 🔴{labels['sell_label']}:{sell_count}",
+            f"{summary_counts}",
         ]
         self._append_market_status_line(report_lines, results, report_language)
 
@@ -1653,13 +1640,13 @@ class NotificationService(
         # 按评分排序
         sorted_results = sorted(results, key=lambda x: x.sentiment_score, reverse=True)
 
-        buy_count, sell_count, hold_count = self._count_display_decisions(results, report_language)
+        summary_counts = rating_summary(results, report_language)
 
         lines = [
             f"## 🎯 {report_date} {labels['dashboard_title']}",
             "",
             f"> {len(results)} {labels['stock_unit']} | "
-            f"🟢{labels['buy_label']}:{buy_count} 🟡{labels['watch_label']}:{hold_count} 🔴{labels['sell_label']}:{sell_count}",
+            f"{summary_counts}",
         ]
         self._append_market_status_line(lines, results, report_language)
 
@@ -1833,14 +1820,14 @@ class NotificationService(
         # 按评分排序
         sorted_results = sorted(results, key=lambda x: x.sentiment_score, reverse=True)
 
-        buy_count, sell_count, hold_count = self._count_display_decisions(results, report_language)
+        summary_counts = rating_summary(results, report_language)
         avg_score = sum(r.sentiment_score for r in results) / len(results) if results else 0
 
         lines = [
             f"## 📅 {report_date} {labels['report_title']}",
             "",
             f"> {labels['analyzed_prefix']} **{len(results)}** {labels['stock_unit_compact']} | "
-            f"🟢{labels['buy_label']}:{buy_count} 🟡{labels['watch_label']}:{hold_count} 🔴{labels['sell_label']}:{sell_count} | "
+            f"{summary_counts} | "
             f"{labels['avg_score_label']}:{avg_score:.0f}",
         ]
         self._append_market_status_line(lines, results, report_language)
@@ -1926,11 +1913,11 @@ class NotificationService(
         if not results:
             return f"# {report_date} {labels['brief_title']}\n\n{labels['no_results']}"
         sorted_results = sorted(results, key=lambda x: x.sentiment_score, reverse=True)
-        buy_count, sell_count, hold_count = self._count_display_decisions(results, report_language)
+        summary_counts = rating_summary(results, report_language)
         lines = [
             f"# {report_date} {labels['brief_title']}",
             "",
-            f"> {len(results)} {labels['stock_unit_compact']} | 🟢{buy_count} 🟡{hold_count} 🔴{sell_count}",
+            f"> {len(results)} {labels['stock_unit_compact']} | {summary_counts}",
         ]
         self._append_market_status_line(lines, results, report_language)
         for r in sorted_results:

@@ -1540,6 +1540,9 @@ const HomePage: React.FC = () => {
                   className={inputError ? 'border-danger/50' : undefined}
                 />
               </div>
+              <a href="/?reports=1" className="shrink-0 text-sm text-primary hover:underline">
+                {uiLanguage === 'en' ? 'Published reports' : '已发布报告'}
+              </a>
               {analysisSkills.length > 0 ? (
                 <div ref={strategyMenuRef} className="relative flex-shrink-0">
                   <button
@@ -1819,6 +1822,11 @@ const HomePage: React.FC = () => {
                     <BarChart3 className="h-4 w-4" />
                     {t('home.historyTrend')}
                   </Button>
+                  {selectedReport.meta.id !== undefined && (
+                    <a className="text-sm text-primary hover:underline" href={`/?report=history-${selectedReport.meta.id}`}>
+                      {uiLanguage === 'en' ? 'Report permalink' : '报告永久链接'}
+                    </a>
+                  )}
                   <Button
                     variant="home-action-ai"
                     size="sm"

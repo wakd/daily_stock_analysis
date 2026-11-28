@@ -15,6 +15,9 @@ _ICON = re.compile(r"^(?:(?::[\w+-]+:|[\U0001f000-\U0001faff\u2600-\u27bf\ufe0f]
 _MAX_NAMES_PER_GROUP = 8
 _QUALITY_FLAGS = {
     "quote: fallback": {"en": "Fallback quotes", "zh": "行情使用回退数据", "ko": "대체 시세"},
+    "quote: stale": {"en": "Stale quotes", "zh": "行情已过期", "ko": "오래된 시세"},
+    "quote: missing": {"en": "Missing quotes", "zh": "行情缺失", "ko": "시세 누락"},
+    "quote: unavailable": {"en": "Unavailable quotes", "zh": "行情不可用", "ko": "시세 사용 불가"},
     "technical: partial": {"en": "Partial technical data", "zh": "技术指标不完整", "ko": "기술 데이터 일부 누락"},
 }
 
@@ -78,7 +81,7 @@ def _aggregate(content: str, title: str, language: str, labels: dict) -> tuple[s
     for ticker, action, score, _ in signals:
         by_action[action].append(f"{ticker} {score}")
     # Show reductions and exits first. Use the individual report labels because the
-    # report's high-level sell/watch/buy counters intentionally combine several signals.
+    # historical report headlines can combine several distinct ratings.
     order = ["Strong Sell", "Sell", "Reduce", "Strong Buy", "Buy", "Hold", "Watch"]
     ranks = {localize_operation_advice(action, language): i for i, action in enumerate(order)}
     ordered = sorted(by_action, key=lambda action: ranks.get(action, len(ranks)))

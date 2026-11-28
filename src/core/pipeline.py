@@ -3652,6 +3652,9 @@ class StockAnalysisPipeline:
                     report_content = self.notifier.generate_single_stock_report(result)
                     logger.info(f"[{stock_code}] 使用精简报告格式")
 
+                from src.services.report_publications import publish_stocks
+                report_content = publish_stocks(report_content, [result], getattr(result, "report_language", "en"),
+                                                report_type.value, single=True)
                 save_report = getattr(self.notifier, "save_report_to_file", None)
                 if callable(save_report):
                     try:
