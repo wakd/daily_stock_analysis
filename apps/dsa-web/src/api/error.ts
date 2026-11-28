@@ -22,6 +22,7 @@ export interface ParsedApiError {
   status?: number;
   category: ApiErrorCategory;
   code?: string;
+  englishMessage?: string;
 }
 
 type ResponseLike = {
@@ -169,17 +170,18 @@ function extractErrorCode(data: unknown): string | null {
   return pickString(data.error, data.code);
 }
 
-function extractConfigValidationIssues(data: unknown): string | null {
+function extractConfigValidationIssues(data: unknown, language: 'zh' | 'en' = 'zh'): string | null {
   if (!isRecord(data)) return null;
   const payload = isRecord(data.detail) ? data.detail : data;
   if (!Array.isArray(payload.issues)) return null;
   const messages = payload.issues.filter(isRecord).map((issue) => {
     const key = pickString(issue.key);
     let message = pickString(issue.message);
-    if (issue.code === 'missing_api_key') message = '请填写此渠道的 API Key。';
-    if (issue.code === 'missing_models') message = '请填写账号可用的模型。';
-    if (issue.code === 'unknown_model') message = '请选择当前启用渠道中的模型，或清空无效的模型选项。';
-    return message ? [key, message].filter(Boolean).join('：') : null;
+    if (issue.code === 'missing_api_key') message = language === 'en' ? 'Enter the API key for this channel.' : '请填写此渠道的 API Key。';
+    if (issue.code === 'missing_models') message = language === 'en' ? 'Enter a model available to your account.' : '请填写账号可用的模型。';
+    if (issue.code === 'unknown_model') message = language === 'en' ? 'Select a model from an enabled channel, or clear the invalid selection.' : '请选择当前启用渠道中的模型，或清空无效的模型选项。';
+    if (language === 'en' && message && /\p{Script=Han}/u.test(message)) message = 'Check the value of this setting.';
+    return message ? [key, message].filter(Boolean).join(language === 'en' ? ': ' : '：') : null;
   }).filter((message): message is string => Boolean(message));
   return messages.length ? messages.join('\n') : null;
 }
@@ -324,7 +326,7 @@ export function parseApiError(error: unknown): ParsedApiError {
     const message = issues
       ? `请修正以下配置后重试：\n${issues}`
       : '请检查渠道的 API Key、模型和运行参数后重试。';
-    return createParsedApiError({
+    const parsed = createParsedApiError({
       title: '配置需要调整',
       message,
       rawMessage: message,
@@ -332,6 +334,9 @@ export function parseApiError(error: unknown): ParsedApiError {
       category: 'http_error',
       code: errorCode,
     });
+    const englishIssues = extractConfigValidationIssues(response?.data, 'en');
+    if (englishIssues) parsed.englishMessage = englishIssues;
+    return parsed;
   }
 
   if (errorCode === 'backend_removed') {
@@ -393,6 +398,7 @@ export function parseApiError(error: unknown): ParsedApiError {
   if (errorCode === 'screening_unavailable' || includesAny(matchText, ['内建选股引擎初始化失败', '选股功能初始化失败'])) {
     return createParsedApiError({
       title: '选股功能未就绪',
+      code: 'screening_unavailable',
       message: '选股功能暂不可用，请检查策略配置、数据依赖和服务日志。',
       rawMessage,
       status,
@@ -403,6 +409,7 @@ export function parseApiError(error: unknown): ParsedApiError {
   if (errorCode === 'screening_screen_task_not_found') {
     return createParsedApiError({
       title: '选股任务不可恢复',
+      code: 'screening_screen_task_not_found',
       message: '服务端没有找到这次选股任务，可能后端已重启或任务记录已清理，请重新运行选股。',
       rawMessage,
       status,
@@ -413,6 +420,7 @@ export function parseApiError(error: unknown): ParsedApiError {
   if (errorCode === 'screening_screen_failed') {
     return createParsedApiError({
       title: '选股失败',
+      code: 'screening_screen_failed',
       message: '选股访问行情、快照或模型服务失败，请稍后重试，或检查网络与代理设置。',
       rawMessage,
       status,

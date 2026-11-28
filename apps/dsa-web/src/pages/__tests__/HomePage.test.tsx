@@ -3294,6 +3294,20 @@ describe('HomePage', () => {
     expect(vi.mocked(analysisApi.analyzeAsync).mock.calls[0]?.[0]).not.toHaveProperty('reportLanguage');
   });
 
+  it('uses English names and descriptions throughout the strategy selector', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'en');
+    vi.mocked(agentApi.getSkills).mockResolvedValue({
+      default_skill_id: 'bull_trend',
+      skills: [{ id: 'bull_trend', name: '默认多头趋势', description: '趋势分析' }],
+    });
+    render(<UiLanguageProvider><MemoryRouter><HomePage /></MemoryRouter></UiLanguageProvider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Strategy' }));
+    const option = await screen.findByRole('menuitemradio', { name: /Bullish trend/i });
+    expect(option).toHaveTextContent('Looks for bullish alignment');
+    fireEvent.click(option);
+    expect(screen.getByRole('button', { name: 'Bullish trend' })).toBeInTheDocument();
+  });
+
   it('passes the selected strategy when submitting stock analysis', async () => {
     vi.mocked(agentApi.getSkills).mockResolvedValue({
       default_skill_id: 'bull_trend',

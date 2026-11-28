@@ -130,3 +130,18 @@ def get_us_index_display_name(code: str, language: str, provider_name: str) -> s
         symbol, _ = get_us_index_yf_symbol(code)
         return _ENGLISH_INDEX_NAMES.get(symbol, provider_name)
     return provider_name
+
+
+_ARCHIVED_INDEX_NAMES = {
+    name: _ENGLISH_INDEX_NAMES[symbol]
+    for symbol, name in US_INDEX_MAPPING.values()
+    if symbol in _ENGLISH_INDEX_NAMES
+}
+
+
+def localize_archived_index_names(text: str, language: str) -> str:
+    """Replace the known provider captions embedded in older English reports."""
+    if language == 'en':
+        for name, translated in _ARCHIVED_INDEX_NAMES.items():
+            text = text.replace(name, translated)
+    return text

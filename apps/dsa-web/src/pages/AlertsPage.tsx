@@ -24,6 +24,10 @@ import type {
 } from '../types/alerts';
 import { formatDateTime } from '../utils/format';
 
+import { useUiLanguage } from '../contexts/UiLanguageContext';
+import { formatUiText } from '../i18n/uiText';
+import { ALERT_CENTER_TEXT, type AlertCenterText } from '../locales/alertCenterText';
+
 const PAGE_SIZE = 20;
 
 function enabledFilterToQuery(value: AlertRuleEnabledFilter): boolean | undefined {
@@ -41,22 +45,18 @@ function testVariant(result: AlertRuleTestResponse): 'success' | 'warning' | 'da
   return result.triggered ? 'success' : 'warning';
 }
 
-function renderTestResultMessage(result: AlertRuleTestResponse): React.ReactNode {
+function renderTestResultMessage(result: AlertRuleTestResponse, copy: AlertCenterText): React.ReactNode {
   const targetResults = result.targetResults ?? [];
   return (
     <div className="space-y-2">
       <div>
         {result.message}
-        {' · 状态：'}
-        {result.status}
-        {' · 触发：'}
-        {result.triggered ? '是' : '否'}
-        {' · 观察值：'}
-        {result.observedValue == null ? '--' : String(result.observedValue)}
+        {' · '}
+        {formatUiText(copy.resultDetails, { status: result.status, triggered: result.triggered ? copy.yes : copy.no, value: result.observedValue == null ? '--' : String(result.observedValue) })}
       </div>
       {result.evaluatedCount != null && result.evaluatedCount > 1 ? (
         <div className="text-xs">
-          评估 {result.evaluatedCount} · 触发 {result.triggeredCount ?? 0} · 降级 {result.degradedCount ?? 0} · 跳过 {result.skippedCount ?? 0}
+          {formatUiText(copy.resultCounts, { evaluated: result.evaluatedCount, triggered: result.triggeredCount ?? 0, degraded: result.degradedCount ?? 0, skipped: result.skippedCount ?? 0 })}
         </div>
       ) : null}
       {targetResults.length > 1 ? (
@@ -76,32 +76,33 @@ function renderTestResultMessage(result: AlertRuleTestResponse): React.ReactNode
   );
 }
 
-const notificationChannelLabel: Record<string, string> = {
-  __cooldown__: '业务冷却',
-  __cooldown_read_failed__: '冷却读取失败',
-  __noise_suppressed__: '通知降噪',
-  __no_channel__: '无可用渠道',
-  __dispatch__: '通知调度',
-  __context__: '会话渠道',
-};
-
-function formatNotificationChannel(channel: string): string {
-  return notificationChannelLabel[channel] ?? channel;
+function formatNotificationChannel(channel: string, copy: AlertCenterText): string {
+  const labels: Record<string, string> = {
+    __cooldown__: copy.cooldown,
+    __cooldown_read_failed__: copy.cooldownReadFailed,
+    __noise_suppressed__: copy.noiseSuppression,
+    __no_channel__: copy.noAvailableChannel,
+    __dispatch__: copy.dispatch,
+    __context__: copy.sessionChannel,
+  };
+  return labels[channel] ?? channel;
 }
 
-function formatNotificationStatus(notification: AlertNotificationItem): string {
-  if (notification.success) return '成功';
-  if (notification.errorCode === 'cooldown_active') return '冷却抑制';
-  if (notification.errorCode === 'cooldown_read_failed') return '冷却读取失败';
-  if (notification.errorCode === 'noise_suppressed') return '降噪抑制';
-  if (notification.errorCode === 'no_channel') return '无渠道';
-  return '失败';
+function formatNotificationStatus(notification: AlertNotificationItem, copy: AlertCenterText): string {
+  if (notification.success) return copy.success;
+  if (notification.errorCode === 'cooldown_active') return copy.cooldownActive;
+  if (notification.errorCode === 'cooldown_read_failed') return copy.cooldownReadFailed;
+  if (notification.errorCode === 'noise_suppressed') return copy.noiseSuppressed;
+  if (notification.errorCode === 'no_channel') return copy.noChannel;
+  return copy.failed;
 }
 
 const AlertsPage: React.FC = () => {
+  const { language } = useUiLanguage();
+  const copy = ALERT_CENTER_TEXT[language];
   useEffect(() => {
-    document.title = '告警中心 - DSA';
-  }, []);
+    document.title = copy.title + ' - DSA';
+  }, [copy.title]);
 
   const [rules, setRules] = useState<AlertRuleItem[]>([]);
   const [rulesTotal, setRulesTotal] = useState(0);
@@ -124,7 +125,7 @@ const AlertsPage: React.FC = () => {
 
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<ParsedApiError | null>(null);
-  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [createdName, setCreatedName] = useState<string | null>(null);
   const [busyRule, setBusyRule] = useState<AlertRuleBusyState | null>(null);
   const [testResult, setTestResult] = useState<AlertRuleTestResponse | null>(null);
   const rulesRequestIdRef = useRef(0);
@@ -205,10 +206,10 @@ const AlertsPage: React.FC = () => {
   const handleCreateRule = async (payload: AlertRuleCreateRequest) => {
     setCreateLoading(true);
     setCreateError(null);
-    setCreateSuccess(null);
+    setCreatedName(null);
     try {
       const created = await alertsApi.createRule(payload);
-      setCreateSuccess(`已创建告警规则「${created.name}」`);
+      setCreatedName(created.name);
       setRulesPage(1);
       setRulesRefreshKey((value) => value + 1);
       return true;
@@ -265,19 +266,19 @@ const AlertsPage: React.FC = () => {
     <AppPage className="space-y-5">
       <PageHeader
         eyebrow="Alert Center"
-        title="告警中心"
-        description="管理事件告警、日线技术指标、自选股、持仓/账户联动和大盘红绿灯规则，执行一次性测试，并查看后台评估任务记录的触发历史。"
+        title={copy.title}
+        description={copy.description}
       />
 
       {createError ? <ApiErrorAlert error={createError} onDismiss={() => setCreateError(null)} /> : null}
-      {createSuccess ? (
+      {createdName !== null ? (
         <InlineAlert
-          title="创建成功"
-          message={createSuccess}
+          title={copy.createdTitle}
+          message={formatUiText(copy.createdMessage, { name: createdName })}
           variant="success"
           action={(
-            <button type="button" className="text-sm underline" onClick={() => setCreateSuccess(null)}>
-              关闭
+            <button type="button" className="text-sm underline" onClick={() => setCreatedName(null)}>
+              {copy.close}
             </button>
           )}
         />
@@ -285,9 +286,9 @@ const AlertsPage: React.FC = () => {
       {rulesError ? <ApiErrorAlert error={rulesError} onDismiss={() => setRulesError(null)} /> : null}
       {!rulesError && ruleSources && ruleSources.legacyConfigured > 0 ? (
         <InlineAlert
-          title="存在环境变量告警规则"
+          title={copy.legacyRules}
           variant="warning"
-          message={`环境变量配置了 ${ruleSources.legacyConfigured} 条有效规则，按当前启用的页面规则去重后有 ${ruleSources.legacyEffective} 条可供后台轮询。此数量不受页面筛选影响，也不表示后台轮询已启动。页面仅管理数据库规则；删除或禁用页面规则不会停用环境规则。若需停用，请在部署配置中修改 AGENT_EVENT_ALERT_RULES_JSON 并重新加载配置。`}
+          message={formatUiText(copy.legacyDescription, { configured: ruleSources.legacyConfigured, effective: ruleSources.legacyEffective })}
         />
       ) : null}
 
@@ -319,9 +320,9 @@ const AlertsPage: React.FC = () => {
           />
           {testResult ? (
             <InlineAlert
-              title="测试结果"
+              title={copy.testResult}
               variant={testVariant(testResult)}
-              message={renderTestResultMessage(testResult)}
+              message={renderTestResultMessage(testResult, copy)}
             />
           ) : null}
         </div>
@@ -331,13 +332,13 @@ const AlertsPage: React.FC = () => {
       <AlertTriggerHistory triggers={triggers} isLoading={triggersLoading} />
 
       {notificationsError ? <ApiErrorAlert error={notificationsError} onDismiss={() => setNotificationsError(null)} /> : null}
-      <Card title="通知尝试记录" subtitle="通知结果" variant="bordered" padding="md">
-        {notificationsLoading ? <Loading label="正在加载通知尝试记录" /> : null}
+      <Card title={copy.notificationHistory} subtitle={copy.notificationResults} variant="bordered" padding="md">
+        {notificationsLoading ? <Loading label={copy.loadingNotifications} /> : null}
         {!notificationsLoading && notifications.length === 0 ? (
           <EmptyState
             icon={<BellRing className="h-6 w-6" />}
-            title="暂无通知尝试记录"
-            description="当前没有可展示的通知尝试明细；告警触发仍会按已配置通知渠道发送。"
+            title={copy.noNotifications}
+            description={copy.noNotificationsDetail}
           />
         ) : null}
         {!notificationsLoading && notifications.length > 0 ? (
@@ -345,19 +346,19 @@ const AlertsPage: React.FC = () => {
             <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="border-b border-border/60 text-xs uppercase text-muted-text">
                 <tr>
-                  <th className="px-3 py-2 font-medium">渠道</th>
-                  <th className="px-3 py-2 font-medium">状态</th>
-                  <th className="px-3 py-2 font-medium">错误码</th>
-                  <th className="px-3 py-2 font-medium">耗时</th>
-                  <th className="px-3 py-2 font-medium">时间</th>
-                  <th className="px-3 py-2 font-medium">诊断</th>
+                  <th className="px-3 py-2 font-medium">{copy.channel}</th>
+                  <th className="px-3 py-2 font-medium">{copy.status}</th>
+                  <th className="px-3 py-2 font-medium">{copy.errorCode}</th>
+                  <th className="px-3 py-2 font-medium">{copy.latency}</th>
+                  <th className="px-3 py-2 font-medium">{copy.time}</th>
+                  <th className="px-3 py-2 font-medium">{copy.diagnostics}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
                 {notifications.map((notification) => (
                   <tr key={notification.id}>
-                    <td className="px-3 py-3">{formatNotificationChannel(notification.channel)}</td>
-                    <td className="px-3 py-3">{formatNotificationStatus(notification)}</td>
+                    <td className="px-3 py-3">{formatNotificationChannel(notification.channel, copy)}</td>
+                    <td className="px-3 py-3">{formatNotificationStatus(notification, copy)}</td>
                     <td className="px-3 py-3">{notification.errorCode ?? '--'}</td>
                     <td className="px-3 py-3">{notification.latencyMs == null ? '--' : `${notification.latencyMs}ms`}</td>
                     <td className="px-3 py-3">{formatDateTime(notification.createdAt)}</td>

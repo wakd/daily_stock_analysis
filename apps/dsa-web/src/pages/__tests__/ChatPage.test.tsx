@@ -514,6 +514,17 @@ describe('ChatPage', () => {
     expect(mockStartStream).not.toHaveBeenCalled();
   });
 
+  it('localizes the chat controls, built-in strategies and example prompts in English', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'en');
+    render(<UiLanguageProvider><MemoryRouter><ChatPage /></MemoryRouter></UiLanguageProvider>);
+
+    expect(await screen.findByRole('checkbox', { name: 'Bullish trend' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Analyze the trend in BYD' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start a new chat' })).toBeInTheDocument();
+    expect(screen.getByText('Context compression')).toBeInTheDocument();
+    expect(document.title).toBe('Ask Stock - DSA');
+  });
+
   it('renders authoritative object and manual conflict refresh in English', async () => {
     window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'en');
     mockStoreState.activeStockContext = { stock_code: '005930.KS', canonical_id: '005930.KS',

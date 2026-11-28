@@ -14,8 +14,10 @@ import json
 import logging
 import re
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Optional, Dict, Any, List, Tuple, TYPE_CHECKING
 
+from data_provider.us_index_mapping import localize_archived_index_names
 from src.config import get_config, resolve_news_window_days
 from src.formatters import markdown_to_plain_text
 from src.data.stock_index_loader import resolve_index_stock_code
@@ -24,6 +26,7 @@ from src.report_language import (
     get_bias_status_emoji,
     get_localized_stock_name,
     get_report_labels,
+    get_sentiment_label,
     get_signal_level,
     get_chip_unavailable_reason,
     is_chip_structure_unavailable,
@@ -70,6 +73,38 @@ if TYPE_CHECKING:
     from src.analyzer import AnalysisResult
 
 logger = logging.getLogger(__name__)
+
+
+def _history_report_language(raw_result: Any, context_snapshot: Any) -> str:
+    language = raw_result.get("report_language") if isinstance(raw_result, dict) else None
+    if not language:
+        snapshot = parse_json_field(context_snapshot)
+        if isinstance(snapshot, dict):
+            payload = snapshot.get("market_review_payload")
+            language = snapshot.get("report_language") or (
+                payload.get("language") if isinstance(payload, dict) else None
+            )
+    return normalize_report_language(language if isinstance(language, str) else None)
+
+
+def _localize_market_review_payload(payload: Dict[str, Any], language: str) -> Dict[str, Any]:
+    """Localize display fields in the decoded snapshot, leaving source news and symbols intact."""
+    result = dict(payload)
+    if isinstance(payload.get("markdown_report"), str):
+        result["markdown_report"] = localize_archived_index_names(payload["markdown_report"], language)
+    for collection, field in (("indices", "name"), ("sections", "markdown")):
+        if isinstance(payload.get(collection), list):
+            result[collection] = [
+                {**item, field: localize_archived_index_names(item[field], language)}
+                if isinstance(item, dict) and isinstance(item.get(field), str) else item
+                for item in payload[collection]
+            ]
+    if isinstance(payload.get("markets"), dict):
+        result["markets"] = {
+            region: _localize_market_review_payload(market, language) if isinstance(market, dict) else market
+            for region, market in payload["markets"].items()
+        }
+    return result
 
 
 class MarkdownReportGenerationError(Exception):
@@ -438,9 +473,10 @@ class HistoryService:
         action_fields = self._decision_action_fields_for_record(record, raw_result)
         analysis_summary = record.analysis_summary
         if getattr(record, "report_type", None) == "market_review":
-            market_review_content = self._extract_market_review_content(record, raw_result)
+            language = _history_report_language(raw_result, getattr(record, "context_snapshot", None))
+            market_review_content = self._extract_market_review_content(record, raw_result, language)
             analysis_summary = self._market_review_summary(
-                record.analysis_summary,
+                localize_archived_index_names(record.analysis_summary or "", language),
                 market_review_content,
             )
 
@@ -692,17 +728,17 @@ class HistoryService:
         return display_points
 
     @staticmethod
-    def _extract_market_review_content(record, raw_result: Any) -> Optional[str]:
+    def _extract_market_review_content(record, raw_result: Any, language: str) -> Optional[str]:
         """Return persisted market review content from raw_result or news_content."""
         if isinstance(raw_result, dict):
             for field in ("raw_response", "market_review_report"):
                 content = raw_result.get(field)
                 if isinstance(content, str) and content.strip():
-                    return content
+                    return localize_archived_index_names(content, language)
 
         news_content = getattr(record, "news_content", None)
         if isinstance(news_content, str) and news_content.strip():
-            return news_content
+            return localize_archived_index_names(news_content, language)
         return None
 
     @staticmethod
@@ -755,9 +791,7 @@ class HistoryService:
             except json.JSONDecodeError:
                 context_snapshot = record.context_snapshot
 
-        report_language = normalize_report_language(
-            raw_result.get("report_language") if isinstance(raw_result, dict) else None
-        )
+        report_language = _history_report_language(raw_result, context_snapshot)
         news_disclosure = empty_news_disclosure_from_stored(
             raw_result,
             context_snapshot,
@@ -767,9 +801,13 @@ class HistoryService:
         market_review_content = None
         analysis_summary = record.analysis_summary
         if getattr(record, "report_type", None) == "market_review":
-            market_review_content = self._extract_market_review_content(record, raw_result)
+            if isinstance(context_snapshot, dict) and report_language == "en":
+                payload = context_snapshot.get("market_review_payload")
+                if isinstance(payload, dict):
+                    context_snapshot["market_review_payload"] = _localize_market_review_payload(payload, report_language)
+            market_review_content = self._extract_market_review_content(record, raw_result, report_language)
             analysis_summary = self._market_review_summary(
-                record.analysis_summary,
+                localize_archived_index_names(record.analysis_summary or "", report_language),
                 market_review_content,
             )
 
@@ -783,6 +821,7 @@ class HistoryService:
             "storage_stock_code": str(record.code or "").strip(),
             "stock_name": record.name,
             "report_type": record.report_type,
+            "report_language": report_language,
             "created_at": self._serialize_created_at(record.created_at),
             "model_used": model_used,
             "analysis_summary": analysis_summary,
@@ -791,7 +830,9 @@ class HistoryService:
             "action_label": action_fields["action_label"],
             "trend_prediction": record.trend_prediction,
             "sentiment_score": record.sentiment_score,
-            "sentiment_label": self._get_sentiment_label(record.sentiment_score or 50),
+            "sentiment_label": get_sentiment_label(
+                record.sentiment_score if record.sentiment_score is not None else 50, report_language
+            ),
             "ideal_buy": sniper_points.get("ideal_buy"),
             "secondary_buy": sniper_points.get("secondary_buy"),
             "stop_loss": sniper_points.get("stop_loss"),
@@ -945,27 +986,6 @@ class HistoryService:
 
         return filtered[:limit]
     
-    def _get_sentiment_label(self, score: int) -> str:
-        """
-        Get sentiment label based on score.
-
-        Args:
-            score: Sentiment score (0-100)
-
-        Returns:
-            Sentiment label
-        """
-        if score >= 80:
-            return "极度乐观"
-        elif score >= 60:
-            return "乐观"
-        elif score >= 40:
-            return "中性"
-        elif score >= 20:
-            return "悲观"
-        else:
-            return "极度悲观"
-
     def get_markdown_report(self, record_id: str) -> Optional[str]:
         """
         Generate a Markdown report for a single analysis history record.
@@ -989,21 +1009,22 @@ class HistoryService:
 
         # Rebuild AnalysisResult from raw_result
         raw_result = parse_json_field(record.raw_result)
-        if not raw_result:
-            logger.error(f"get_markdown_report: raw_result is empty for {record_id}")
-            raise MarkdownReportGenerationError(
-                f"raw_result is empty or invalid for record {record_id}",
-                record_id=record_id
-            )
-
         if getattr(record, "report_type", None) == "market_review":
-            markdown_report = self._extract_market_review_content(record, raw_result)
+            language = _history_report_language(raw_result, getattr(record, "context_snapshot", None))
+            markdown_report = self._extract_market_review_content(record, raw_result, language)
             if markdown_report:
                 return markdown_report
             logger.error(f"get_markdown_report: market review report is empty for {record_id}")
             raise MarkdownReportGenerationError(
                 f"market review report is empty for record {record_id}",
                 record_id=record_id,
+            )
+
+        if not raw_result:
+            logger.error(f"get_markdown_report: raw_result is empty for {record_id}")
+            raise MarkdownReportGenerationError(
+                f"raw_result is empty or invalid for record {record_id}",
+                record_id=record_id
             )
 
         try:
@@ -1613,6 +1634,15 @@ class HistoryService:
             value = snapshot.get(key)
             if value is not None:
                 formatted = HistoryService._safe_format_number(value, fmt)
+                if key in ("volume", "amount") and result.report_language == "en":
+                    # Older snapshots persisted already-rounded Chinese unit strings.
+                    unit = "股" if key == "volume" else "元"
+                    match = re.fullmatch(rf"(\d+(?:\.\d+)?)\s*([万亿]?){unit}", formatted)
+                    if match:
+                        scale = {"": 1, "万": 10_000, "亿": 100_000_000}[match[2]]
+                        formatted = f"{Decimal(match[1]) * scale:,.0f}"
+                        if key == "volume":
+                            formatted += " shares"
                 lines.append(f"| {label} | {formatted} |")
 
         lines.extend(["", "---", ""])

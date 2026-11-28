@@ -106,6 +106,14 @@ const noBreadthMarketReviewPayload: MarketReviewPayload = {
 };
 
 describe('MarketReviewReportView', () => {
+  it('localizes headings for archived Markdown without structured sections', () => {
+    const { rerender } = render(<MarketReviewReportView content="A quiet close." reportLanguage="en" />);
+    expect(screen.getByRole('heading', { name: 'Review' })).toBeInTheDocument();
+    rerender(<MarketReviewReportView content={'A quiet close.\n\n## Indices\n\nThe S&P 500 was flat.'} reportLanguage="en" />);
+    expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Indices' })).toBeInTheDocument();
+  });
+
   it('uses localized summary card labels and fallbacks for English reports', () => {
     render(
       <MarketReviewReportView

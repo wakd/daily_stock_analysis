@@ -2208,6 +2208,66 @@ class AnalysisHistoryTestCase(unittest.TestCase):
         self.assertNotIn("dsa-market-region", summary)
         self.assertNotIn("internal", summary)
 
+    def test_archived_review_translates_index_captions_only_for_english(self) -> None:
+        service = HistoryService(self.db)
+        source = "| 标普500指数 | 5032.40 |\n| VIX恐慌指数 | 19.22 |"
+        english = "| S&P 500 | 5032.40 |\n| Cboe Volatility Index (VIX) | 19.22 |"
+        for language, caption in (("en", "S&P 500"), ("zh", "标普500指数")):
+            with self.subTest(language=language):
+                market = {
+                    "indices": [{"name": "标普500指数", "code": "SPX", "current": 5032.40}],
+                    "sections": [{"key": "index_commentary", "markdown": source}],
+                    "news": [{"title": "标普500指数", "url": "https://example.org/item"}],
+                }
+                payload = {"markets": {"us": market}, "language": language, "markdown_report": source}
+                result = AnalysisResult(
+                    code="MARKET", name="Market Review", report_language=language,
+                    sentiment_score=50, trend_prediction="Market review", operation_advice="View review",
+                    analysis_summary="标普500指数", raw_response=source,
+                )
+                record_id = self.db.save_analysis_history(
+                    result=result, query_id=f"legacy_indices_{language}", report_type="market_review",
+                    news_content=source, context_snapshot={"market_review_payload": payload},
+                    save_snapshot=True,
+                )
+                detail = service.get_history_detail_by_id(record_id)
+                rendered = detail["context_snapshot"]["market_review_payload"]
+                expected = english if language == "en" else source
+                self.assertEqual(detail["news_content"], expected)
+                self.assertEqual(detail["analysis_summary"], caption)
+                self.assertEqual(detail["sentiment_label"], "Neutral" if language == "en" else "中性")
+                self.assertEqual(rendered["markdown_report"], expected)
+                self.assertEqual(rendered["markets"]["us"]["sections"][0]["markdown"], expected)
+                self.assertEqual(rendered["markets"]["us"]["indices"][0], {**market["indices"][0], "name": caption})
+                self.assertEqual(rendered["markets"]["us"]["news"], market["news"])
+                self.assertEqual(service.get_markdown_report(str(record_id)), expected)
+                with self.db.get_session() as session:
+                    record = session.get(AnalysisHistory, record_id)
+                    self.assertEqual(service._record_to_list_item_dict(record)["analysis_summary"], caption)
+                    self.assertEqual(json.loads(record.context_snapshot)["market_review_payload"], payload)
+
+    def test_english_stock_report_displays_volume_and_value_in_the_correct_units(self) -> None:
+        from src.analyzer import GeminiAnalyzer
+
+        analyzer = object.__new__(GeminiAnalyzer)
+        context = {"today": {"volume": 123_400, "amount": 250_000_000}}
+        self.assertEqual(analyzer._build_market_snapshot(context, "en")["volume"], "123.40K shares")
+        self.assertEqual(analyzer._build_market_snapshot(context, "en")["amount"], "250.00M")
+        legacy_snapshot = analyzer._build_market_snapshot(context, "zh")
+        self.assertEqual(legacy_snapshot["volume"], "12.34 万股")
+        result = AnalysisResult(
+            code="AAPL", name="Apple", report_language="en", sentiment_score=50,
+            trend_prediction="Neutral", operation_advice="Watch", market_snapshot=legacy_snapshot,
+        )
+        record_id = self.db.save_analysis_history(
+            result=result, query_id="legacy_share_units", report_type="simple", news_content=None,
+        )
+        markdown = HistoryService(self.db).get_markdown_report(str(record_id))
+        self.assertIn("| Volume | 123,400 shares |", markdown)
+        self.assertIn("250,000,000", markdown)
+        self.assertNotIn("万股", markdown)
+        self.assertNotIn("亿元", markdown)
+
     def test_market_review_summary_prefers_persisted_summary_and_truncates_fallback(self) -> None:
         service = HistoryService(self.db)
 

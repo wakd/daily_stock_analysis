@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type React from 'react';
 import { StockAutocomplete } from '../StockAutocomplete';
+import { SuggestionsList } from '../SuggestionsList';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 import type { StockIndexItem, StockSuggestion } from '../../../types/stockIndex';
 
 let stockIndexHookImpl: () => {
@@ -140,6 +143,21 @@ describe('StockAutocomplete', () => {
       runtimeFallback: false,
       error: null,
     });
+  });
+
+  it('uses the English listing name and localizes market and match badges in English', () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'en');
+    render(
+      <UiLanguageProvider>
+        <SuggestionsList suggestions={[{ ...mockSuggestions[0], nameEn: 'Kweichow Moutai' }]}
+          highlightedIndex={0} onSelect={vi.fn()} onMouseEnter={vi.fn()} />
+      </UiLanguageProvider>,
+    );
+    const option = screen.getByRole('option');
+    expect(option).toHaveTextContent('Kweichow Moutai');
+    expect(option).toHaveTextContent('China A');
+    expect(option).toHaveTextContent('Exact');
+    window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
   });
 
   it('renders the input element', () => {

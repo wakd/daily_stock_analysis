@@ -9,6 +9,7 @@ import { Component, useRef, useEffect, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import { useStockIndex } from '../../hooks/useStockIndex';
 import { useAutocomplete } from '../../hooks/useAutocomplete';
 import { SuggestionsList } from './SuggestionsList';
@@ -45,7 +46,7 @@ function FallbackInput({
   onChange,
   onSubmit,
   disabled = false,
-  placeholder = '输入股票代码或名称',
+  placeholder,
   ariaLabel,
   className,
 }: StockAutocompleteProps) {
@@ -107,7 +108,7 @@ function StockAutocompleteInner({
   onChange,
   onSubmit,
   disabled = false,
-  placeholder = '输入股票代码或名称',
+  placeholder,
   ariaLabel,
   className,
 }: StockAutocompleteProps) {
@@ -314,10 +315,12 @@ function StockAutocompleteInner({
   );
 }
 
-export function StockAutocomplete(props: StockAutocompleteProps) {
+export function StockAutocomplete({ placeholder, ...props }: StockAutocompleteProps) {
+  const { language } = useUiLanguage();
+  const prompt = placeholder ?? (language === 'en' ? 'Enter a stock code or name' : '输入股票代码或名称');
   return (
-    <StockAutocompleteBoundary {...props}>
-      <StockAutocompleteInner {...props} />
+    <StockAutocompleteBoundary {...props} placeholder={prompt}>
+      <StockAutocompleteInner {...props} placeholder={prompt} />
     </StockAutocompleteBoundary>
   );
 }

@@ -144,7 +144,9 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 > Compatibility note: `REPORT_SHOW_LLM_MODEL` keeps the previous default-visible behavior (`true`) and only changes report footer rendering. It does not alter provider/model/Base URL, LiteLLM routing, or runtime model persistence/migration/cleanup semantics. Rollback is to remove the variable or set it back to `true`.
 
 > `REPORT_LANGUAGE` affects report text, report-page fixed copy, and Agent Chat replies that do not explicitly select a language. Web UI chrome language (navigation, login, settings, shell labels, shared controls) is intentionally independent and stored in browser `localStorage` as `dsa.uiLanguage`.
-> The web interface opens in English until you save a language preference. For US market reviews, `REPORT_LANGUAGE=en` also selects English names for supported indices in charts, the report and the API payload. The template identifies missing benchmark moves and unchanged closes separately.
+> The web interface opens in English until you save a language preference. For US market reviews, `REPORT_LANGUAGE=en` also selects English names for supported indices in charts, the report and the API payload. Older English reviews display the same benchmark names in history, commentary and Markdown exports. The template identifies missing benchmark moves and unchanged closes separately.
+> Built-in strategy names and descriptions follow the interface language. English single-stock reports show share volume in English, including Markdown exports of earlier snapshots.
+> Stock screening uses the interface language for its controls, built-in strategies, progress, results and run history. Exchange-listed names and provider news retain their source spelling.
 > Market Light averages US equity-index changes to measure direction. The index table shows the VIX separately as a volatility measure. Yahoo Finance index changes require two valid session closes.
 
 #### Other Configuration

@@ -345,6 +345,15 @@ describe('PortfolioPage FX refresh', () => {
     );
   }
 
+  it('uses English throughout manual entry, CSV import and history filters', async () => {
+    renderEnglishPage();
+    expect(await screen.findByRole('heading', { name: 'Enter a trade' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Trade price (required)')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Import broker CSV' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'All trade sides' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit cash transaction' })).toBeInTheDocument();
+  });
+
   it('uses fast portfolio valuation for page snapshot and risk loads', async () => {
     render(<PortfolioPage />);
 

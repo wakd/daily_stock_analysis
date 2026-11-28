@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AlertsPage from '../AlertsPage';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../utils/uiLanguage';
 
 const {
   listRules,
@@ -108,6 +110,20 @@ beforeEach(() => {
 });
 
 describe('AlertsPage', () => {
+  it('localizes trigger and delivery history while preserving the rule name', async () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'en');
+    try {
+      render(<UiLanguageProvider><AlertsPage /></UiLanguageProvider>);
+      expect(await screen.findByText(rule.name)).toBeInTheDocument();
+      expect(await screen.findByText('Triggered')).toBeInTheDocument();
+      expect(screen.getByText('Phase / quality')).toBeInTheDocument();
+      expect(screen.getByText('No notification attempts')).toBeInTheDocument();
+      expect(document.title).toBe('Alert center - DSA');
+    } finally {
+      window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+    }
+  });
+
   it('discloses environment rules even when the database rule list is empty', async () => {
     listRules.mockResolvedValue({
       items: [], total: 0, page: 1, pageSize: 20,

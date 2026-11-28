@@ -5,6 +5,7 @@
 import type { CSSProperties } from 'react';
 import type { StockSuggestion } from '../../types/stockIndex';
 import { Badge } from '../common';
+import { useUiLanguage } from '../../contexts/UiLanguageContext';
 import { cn } from '../../utils/cn';
 
 export interface SuggestionsListProps {
@@ -27,6 +28,7 @@ export function SuggestionsList({
   onMouseEnter,
   style,
 }: SuggestionsListProps) {
+  const { language } = useUiLanguage();
   if (suggestions.length === 0) {
     return null;
   }
@@ -61,7 +63,7 @@ export function SuggestionsList({
 
             <div className="flex flex-col">
               <span className="text-sm font-medium text-primary-text">
-                {suggestion.nameZh}
+                {(language === 'en' && suggestion.nameEn) || suggestion.nameZh}
               </span>
               <span className="text-sm text-secondary-text">
                 {suggestion.displayCode}
@@ -77,17 +79,18 @@ export function SuggestionsList({
 }
 
 const MARKET_BADGE_CONFIG = {
-  CN: { label: 'A股', className: 'border-danger/25 bg-danger/10 text-danger' },
-  HK: { label: '港股', className: 'border-success/25 bg-success/10 text-success' },
-  US: { label: '美股', className: 'border-cyan/25 bg-cyan/10 text-cyan' },
-  JP: { label: '日股', className: 'border-indigo-500/25 bg-indigo-500/10 text-indigo-500' },
-  KR: { label: '韩股', className: 'border-rose-500/25 bg-rose-500/10 text-rose-500' },
-  INDEX: { label: '指数', className: 'border-purple/25 bg-purple/10 text-purple' },
-  ETF: { label: 'ETF', className: 'border-warning/25 bg-warning/10 text-warning' },
-  BSE: { label: '北交所', className: 'border-orange-500/25 bg-orange-500/10 text-orange-500' },
+  CN: { zh: 'A股', en: 'China A', className: 'border-danger/25 bg-danger/10 text-danger' },
+  HK: { zh: '港股', en: 'Hong Kong', className: 'border-success/25 bg-success/10 text-success' },
+  US: { zh: '美股', en: 'US', className: 'border-cyan/25 bg-cyan/10 text-cyan' },
+  JP: { zh: '日股', en: 'Japan', className: 'border-indigo-500/25 bg-indigo-500/10 text-indigo-500' },
+  KR: { zh: '韩股', en: 'Korea', className: 'border-rose-500/25 bg-rose-500/10 text-rose-500' },
+  INDEX: { zh: '指数', en: 'Index', className: 'border-purple/25 bg-purple/10 text-purple' },
+  ETF: { zh: 'ETF', en: 'ETF', className: 'border-warning/25 bg-warning/10 text-warning' },
+  BSE: { zh: '北交所', en: 'Beijing', className: 'border-orange-500/25 bg-orange-500/10 text-orange-500' },
 } as const;
 
 function MarketBadge({ market }: { market: string }) {
+  const { language } = useUiLanguage();
   const config = MARKET_BADGE_CONFIG[market as keyof typeof MARKET_BADGE_CONFIG];
 
   if (!config) {
@@ -96,24 +99,25 @@ function MarketBadge({ market }: { market: string }) {
 
   return (
     <Badge variant="default" size="sm" className={cn('min-w-[3rem] justify-center shadow-none', config.className)}>
-      {config.label}
+      {config[language]}
     </Badge>
   );
 }
 
 function MatchTypeBadge({ matchType }: { matchType: string }) {
+  const { language } = useUiLanguage();
   const configMap = {
-    exact: { label: '精确', className: 'border-cyan/25 bg-cyan/10 text-cyan' },
-    prefix: { label: '前缀', className: 'border-purple/25 bg-purple/10 text-purple' },
-    contains: { label: '包含', className: 'border-warning/25 bg-warning/10 text-warning' },
-    fuzzy: { label: '模糊', className: 'border-border/55 bg-elevated/75 text-muted-text' },
+    exact: { zh: '精确', en: 'Exact', className: 'border-cyan/25 bg-cyan/10 text-cyan' },
+    prefix: { zh: '前缀', en: 'Prefix', className: 'border-purple/25 bg-purple/10 text-purple' },
+    contains: { zh: '包含', en: 'Contains', className: 'border-warning/25 bg-warning/10 text-warning' },
+    fuzzy: { zh: '模糊', en: 'Fuzzy', className: 'border-border/55 bg-elevated/75 text-muted-text' },
   };
 
   const config = configMap[matchType as keyof typeof configMap] || configMap.fuzzy;
 
   return (
     <Badge variant="default" size="sm" className={cn('shrink-0 shadow-none', config.className)}>
-      {config.label}
+      {config[language]}
     </Badge>
   );
 }

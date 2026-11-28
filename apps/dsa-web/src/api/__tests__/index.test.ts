@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import apiClient from '../index';
-import { getParsedApiError } from '../error';
+import { getParsedApiError, parseApiError } from '../error';
+import { localizedApiErrorText } from '../../locales/apiErrorText';
 
 describe('authentication response redirect', () => {
   const assign = vi.fn();
@@ -13,6 +14,21 @@ describe('authentication response redirect', () => {
   });
 
   afterEach(() => vi.unstubAllGlobals());
+
+  it('localizes the alert while preserving source diagnostics and the Chinese display', () => {
+    const error = parseApiError({ code: 'ECONNABORTED', message: 'read timeout from provider' });
+    expect(localizedApiErrorText(error, 'en').title).toBe('External service timed out');
+    expect(localizedApiErrorText(error, 'zh').title).toBe('连接上游服务超时');
+    expect(error.rawMessage).toBe('read timeout from provider');
+  });
+
+  it('shows field names and translated validation advice without exposing rejected values', () => {
+    const error = parseApiError({ response: { status: 400, data: {
+      error: 'validation_failed', issues: [{ key: 'CHANNEL_API_KEY', code: 'missing_api_key', actual: 'secret' }],
+    } } });
+    expect(localizedApiErrorText(error, 'en').message).toBe('CHANNEL_API_KEY: Enter the API key for this channel.');
+    expect(error.rawMessage).not.toContain('secret');
+  });
 
   it('preserves the complete destination on an expired session', async () => {
     const error = { response: { status: 401 }, message: 'expired session' };

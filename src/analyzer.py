@@ -4234,7 +4234,7 @@ Output strictly in the following JSON format. This is a complete Decision Dashbo
                 result = self._parse_response(response_text, code, name)
                 result.raw_response = response_text
                 result.search_performed = bool(news_context)
-                result.market_snapshot = self._build_market_snapshot(context)
+                result.market_snapshot = self._build_market_snapshot(context, report_language)
                 result.model_used = model_used
                 result.report_language = report_language
                 normalize_chip_structure_availability(result, context.get("chip"))
@@ -5147,7 +5147,7 @@ Output the complete Decision Dashboard in JSON format."""
         except (TypeError, ValueError):
             return 'N/A'
 
-    def _build_market_snapshot(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _build_market_snapshot(self, context: Dict[str, Any], report_language: str = "zh") -> Dict[str, Any]:
         """构建当日行情快照（展示用）"""
         today = context.get('today', {}) or {}
         realtime = context.get('realtime', {}) or {}
@@ -5172,7 +5172,7 @@ Output the complete Decision Dashboard in JSON format."""
                 change_amount = None
 
         snapshot = {
-            "date": context.get('date', '未知'),
+            "date": context.get('date') or get_unknown_text(report_language),
             "close": self._format_price(close),
             "open": self._format_price(today.get('open')),
             "high": self._format_price(high),
@@ -5181,8 +5181,8 @@ Output the complete Decision Dashboard in JSON format."""
             "pct_chg": self._format_percent(today.get('pct_chg')),
             "change_amount": self._format_price(change_amount),
             "amplitude": self._format_percent(amplitude),
-            "volume": self._format_volume(today.get('volume')),
-            "amount": self._format_amount(today.get('amount')),
+            "volume": self._format_volume(today.get('volume'), report_language),
+            "amount": self._format_amount(today.get('amount'), report_language),
         }
 
         if realtime:

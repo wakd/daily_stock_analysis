@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { ParsedApiError } from '../../api/error';
 import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import { localizedApiErrorText } from '../../locales/apiErrorText';
 
 interface ApiErrorAlertProps {
   error: ParsedApiError;
@@ -19,8 +20,9 @@ export const ApiErrorAlert: React.FC<ApiErrorAlertProps> = ({
   dismissLabel,
   onDismiss,
 }) => {
-  const { t } = useUiLanguage();
-  const showDetails = error.rawMessage.trim() && error.rawMessage.trim() !== error.message.trim();
+  const { t, language } = useUiLanguage();
+  const copy = localizedApiErrorText(error, language);
+  const showDetails = error.rawMessage.trim() && error.rawMessage.trim() !== copy.message.trim();
 
   return (
     <div
@@ -29,8 +31,8 @@ export const ApiErrorAlert: React.FC<ApiErrorAlertProps> = ({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-semibold">{error.title}</p>
-          <p className="mt-1 whitespace-pre-line break-words text-xs opacity-90">{error.message}</p>
+          <p className="text-sm font-semibold">{copy.title}</p>
+          <p className="mt-1 whitespace-pre-line break-words text-xs opacity-90">{copy.message}</p>
         </div>
         {onDismiss ? (
           <button

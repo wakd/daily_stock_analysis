@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LLMChannelEditor } from '../LLMChannelEditor';
+import { UiLanguageProvider } from '../../../contexts/UiLanguageContext';
+import { UI_LANGUAGE_STORAGE_KEY } from '../../../utils/uiLanguage';
 
 const {
   update,
@@ -47,6 +49,23 @@ describe('LLMChannelEditor', () => {
     const calls = onDraftItemsChange.mock.calls;
     return calls[calls.length - 1]?.[0] || [];
   }
+
+  it('localizes provider presets, configuration fields and model hints in English', () => {
+    window.localStorage.setItem(UI_LANGUAGE_STORAGE_KEY, 'en');
+    try {
+      render(
+        <UiLanguageProvider>
+          <LLMChannelEditor items={openAiItems} configVersion="v1" maskToken="******" onSaved={() => {}} />
+        </UiLanguageProvider>,
+      );
+      expect(screen.getByRole('heading', { name: 'AI model settings' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Modelflare (aggregator)' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Primary model')).toHaveValue('openai/gpt-4o-mini');
+      expect(screen.getByText('Configured models: 1')).toBeInTheDocument();
+    } finally {
+      window.localStorage.removeItem(UI_LANGUAGE_STORAGE_KEY);
+    }
+  });
 
   it.each(['success', 'failure'])('reports save activity until a %s settles, including the post-save refresh', async (outcome) => {
     let resolveUpdate!: (value: { warnings: string[] }) => void;

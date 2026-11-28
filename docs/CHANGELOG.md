@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] 英文界面的问股、告警历史、持仓录入与 CSV 导入、模型渠道配置及服务商预设使用英文标签和操作反馈。
+- [修复] 选股界面的市场、内置策略、热点、任务进度、结果和历史记录标签跟随界面语言。
+- [修复] 历史英文复盘加载时显示美股指数英文名称，覆盖结构化行情、点评、摘要与 Markdown 导出；旧报告的默认章节标题使用报告语言。原始记录保留。
+- [修复] 英文个股报告使用英文成交量单位，历史导出按原记录的万、亿倍数换算；首页策略选择器和股票搜索市场及匹配标签跟随界面语言。
 - [修复] 美股英文复盘的指数表、提示词与 API 使用统一英文名称；信号灯剔除 VIX 对股票方向的干扰，模板区分基准指数平收与行情缺失。
 - [修复] 依赖锁定 `akshare<1.20.0`，避免上游目录与 HTTP 层重构导致 CI 与桌面打包失败；Python 3.10 新装限制 `litellm<1.98.0`，修复 `NotRequired` 导入错误
 - [修复] 自选及其他无关配置保存不再被已有 LLM 渠道或模型错误阻断，模型相关修改仍校验完整依赖；仅更新自选时保留运行时单例与容器环境覆盖，并补齐增删、删空和校验回归。凡本次保存会启用 Agent 路径的，同样校验完整模型依赖：切到 LiteLLM Agent 后端（`AGENT_BACKEND` / `AGENT_GENERATION_BACKEND` 解析为 litellm）、开启 Agent 分析（`AGENT_MODE=true`）、或配置了非 `all` 的 `AGENT_SKILLS`——后两者走普通分析的 Agent 分支，自带 `LLMToolAdapter`，不受 `AGENT_BACKEND` 决定。仅关闭 `AGENT_MODE`、将 `AGENT_SKILLS` 设为 `all` 或空值、以及无关键保存仍不受 LLM 配置影响；显式保存或导入已退役的 `codex_app_server` 仍被拒绝。

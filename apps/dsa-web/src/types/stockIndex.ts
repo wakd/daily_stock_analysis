@@ -45,6 +45,8 @@ export interface StockSuggestion {
   displayCode: string;
   /** Chinese name */
   nameZh: string;
+  /** English listing name, when supplied by the index */
+  nameEn?: string;
   /** Market */
   market: Market;
   /** Match type */

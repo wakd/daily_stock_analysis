@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ScreeningHotspotDetail } from '../../api/screening';
 import StockScreeningPage from '../StockScreeningPage';
+import { UiLanguageProvider } from '../../contexts/UiLanguageContext';
 
 const {
   enableScreening,
@@ -161,6 +162,26 @@ describe('StockScreeningPage', () => {
       },
     }));
     window.sessionStorage.clear();
+  });
+
+  it('renders English controls and the built-in strategy returned by the service', async () => {
+    getScreeningStatus.mockResolvedValueOnce({ enabled: true, available: true });
+    getStrategies.mockResolvedValueOnce({
+      ...mockStrategiesResponse,
+      strategies: [{
+        ...mockStrategiesResponse.strategies[0],
+        name: '双低选股',
+        description: '偏稳健的低估值筛选策略，叠加当日活跃度与形态确认，避免长期只命中静态低估值票',
+      }],
+    });
+
+    const { container } = render(<UiLanguageProvider><StockScreeningPage /></UiLanguageProvider>);
+
+    expect(await screen.findByText('Screening is enabled')).toBeInTheDocument();
+    expect(await screen.findByText('Dual-low value')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run screen' })).toBeEnabled();
+    expect(container.textContent).not.toMatch(/\p{Script=Han}/u);
+    expect(startScreenTask).not.toHaveBeenCalled();
   });
 
   it('keeps implementation attribution and repeated guidance off the operation page', async () => {
