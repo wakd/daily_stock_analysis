@@ -37,6 +37,7 @@ from src.schemas.market_light import MARKET_LIGHT_REGIONS, MarketLightSnapshot
 from src.services.run_diagnostics import record_llm_run, record_llm_run_started
 from src.services.intelligence_service import IntelligenceService
 from data_provider.base import DataFetcherManager
+from data_provider.us_index_mapping import get_us_index_display_name, get_us_index_yf_symbol
 
 logger = logging.getLogger(__name__)
 
@@ -537,7 +538,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 "mild_up": "moderate gains",
                 "mild_down": "mild losses",
                 "strong_down": "clear weakness",
-                "range": "range-bound trading",
+                "flat": "an unchanged benchmark close",
             }
         else:
             mapping = {
@@ -545,7 +546,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 "mild_up": "小幅上涨",
                 "mild_down": "小幅下跌",
                 "strong_down": "明显下跌",
-                "range": "震荡整理",
+                "flat": "基准指数平收",
             }
         return mapping[mood_key]
 
@@ -589,9 +590,12 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 
             if data_list:
                 for item in data_list:
+                    name = item['name']
+                    if self.region == "us":
+                        name = get_us_index_display_name(item['code'], self._get_review_language(), name)
                     index = MarketIndex(
                         code=item['code'],
-                        name=item['name'],
+                        name=name,
                         current=item['current'],
                         change=item['change'],
                         change_pct=item['change_pct'],
@@ -1311,10 +1315,11 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 reasons.append(f"上涨家数占比 {up_ratio:.0%}，亏钱效应较强")
             else:
                 reasons.append(f"上涨家数占比 {up_ratio:.0%}，市场分化")
-        index_changes = [idx.change_pct for idx in overview.indices if idx.change_pct is not None]
+        index_changes = self._equity_index_changes(overview)
         if index_changes:
             avg_change = sum(index_changes) / len(index_changes)
-            reasons.append(f"主要指数平均涨跌幅 {avg_change:+.2f}%")
+            reasons.append(f"主要股票指数平均涨跌幅 {avg_change:+.2f}%" if self.region == "us"
+                           else f"主要指数平均涨跌幅 {avg_change:+.2f}%")
         if overview.limit_up_count or overview.limit_down_count:
             reasons.append(f"涨跌停差 {overview.limit_up_count - overview.limit_down_count:+d}")
         if not reasons and overview.total_amount:
@@ -1334,10 +1339,11 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
                 reasons.append(f"advancers ratio {up_ratio:.0%}, downside pressure dominates")
             else:
                 reasons.append(f"advancers ratio {up_ratio:.0%}, breadth is mixed")
-        index_changes = [idx.change_pct for idx in overview.indices if idx.change_pct is not None]
+        index_changes = self._equity_index_changes(overview)
         if index_changes:
             avg_change = sum(index_changes) / len(index_changes)
-            reasons.append(f"average major-index change {avg_change:+.2f}%")
+            label = "average equity-index change" if self.region == "us" else "average major-index change"
+            reasons.append(f"{label} {avg_change:+.2f}%")
         if overview.limit_up_count or overview.limit_down_count:
             reasons.append(f"limit-up/down spread {overview.limit_up_count - overview.limit_down_count:+d}")
         if not reasons and overview.total_amount:
@@ -1504,6 +1510,11 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             return "缩量观望"
         return "暂无数据"
 
+    def _equity_index_changes(self, overview: MarketOverview) -> List[float]:
+        """VIX measures volatility and cannot be averaged with equity returns."""
+        return [idx.change_pct for idx in overview.indices if idx.change_pct is not None
+                and not (self.region == "us" and idx.code.upper().lstrip("^") == "VIX")]
+
     def _build_market_light_scores(self, overview: MarketOverview) -> Dict[str, Any]:
         """Build the canonical Market Light scores used by reports and alerts."""
 
@@ -1513,7 +1524,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         if breadth_available:
             breadth_score = int(overview.up_count / participants * 100)
 
-        index_changes = [idx.change_pct for idx in overview.indices if idx.change_pct is not None]
+        index_changes = self._equity_index_changes(overview)
         index_available = bool(overview.indices and index_changes)
         index_score = 50
         if index_available:
@@ -1896,25 +1907,24 @@ Output the report content directly, no extra commentary.
         # 根据 mood_index_code 查找对应指数
         # cn: mood_code="000001"，idx.code 可能为 "sh000001"（以 mood_code 结尾）
         # us: mood_code="SPX"，idx.code 直接为 "SPX"
-        mood_index = next(
-            (
-                idx
-                for idx in overview.indices
-                if idx.code == mood_code or idx.code.endswith(mood_code)
-            ),
-            None,
-        )
+        if self.region == "us":
+            symbol, _ = get_us_index_yf_symbol(mood_code)
+            mood_index = next((idx for idx in overview.indices if get_us_index_yf_symbol(idx.code)[0] == symbol), None)
+        else:
+            mood_index = next((idx for idx in overview.indices if idx.code.endswith(mood_code)), None)
         if mood_index:
             if mood_index.change_pct > 1:
                 market_mood = self._get_market_mood_text("strong_up", template_language)
             elif mood_index.change_pct > 0:
                 market_mood = self._get_market_mood_text("mild_up", template_language)
+            elif mood_index.change_pct == 0:
+                market_mood = self._get_market_mood_text("flat", template_language)
             elif mood_index.change_pct > -1:
                 market_mood = self._get_market_mood_text("mild_down", template_language)
             else:
                 market_mood = self._get_market_mood_text("strong_down", template_language)
         else:
-            market_mood = self._get_market_mood_text("range", template_language)
+            market_mood = None
         
         # 指数行情（简洁格式）
         indices_text = ""
@@ -1930,6 +1940,8 @@ Output the report content directly, no extra commentary.
         bottom_concept_text = separator.join([s['name'] for s in overview.bottom_concepts[:3]])
 
         if template_language == "en":
+            summary = (f"Today's {self._get_market_scope_name(template_language)} showed **{market_mood}**."
+                       if market_mood else "The benchmark move is unavailable for this session.")
             stats_section = ""
             if self._supports_market_light() or self.profile.has_market_stats:
                 stats_block = self._build_stats_block(overview)
@@ -1957,7 +1969,7 @@ Output the report content directly, no extra commentary.
             report = f"""## {overview.date} {market_name}
 
 ### 1. Market Summary
-Today's {self._get_market_scope_name(template_language)} showed **{market_mood}**.
+{summary}
 
 ### 2. Major Indices
 {indices_text or "- No index data available"}
@@ -1996,6 +2008,8 @@ Market conditions can change quickly. The data above is for reference only and d
                 else "- 当前以主要指数与可用新闻线索评估整体风险状态。"
             )
         )
+        summary = (f"今日{market_label}市场整体呈现**{market_mood}**态势，优先观察{summary_focus}。"
+                   if market_mood else f"今日基准指数行情暂缺，优先观察{summary_focus}。")
         sector_section = (
             f"""
 ### 三、板块主线
@@ -2014,7 +2028,7 @@ Market conditions can change quickly. The data above is for reference only and d
         )
         return f"""## {overview.date} 大盘复盘
 
-> 今日{market_label}市场整体呈现**{market_mood}**态势，优先观察{summary_focus}。
+> {summary}
 
 ### 一、盘面总览
 {market_summary_block}

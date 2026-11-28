@@ -144,7 +144,8 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 > Compatibility note: `REPORT_SHOW_LLM_MODEL` keeps the previous default-visible behavior (`true`) and only changes report footer rendering. It does not alter provider/model/Base URL, LiteLLM routing, or runtime model persistence/migration/cleanup semantics. Rollback is to remove the variable or set it back to `true`.
 
 > `REPORT_LANGUAGE` affects report text, report-page fixed copy, and Agent Chat replies that do not explicitly select a language. Web UI chrome language (navigation, login, settings, shell labels, shared controls) is intentionally independent and stored in browser `localStorage` as `dsa.uiLanguage`.
-> UI language resolution is: explicit localStorage value (`zh` or `en`) -> browser language (`navigator.languages` / `navigator.language`) -> default `zh`.
+> The web interface opens in English until you save a language preference. For US market reviews, `REPORT_LANGUAGE=en` also selects English names for supported indices in charts, the report and the API payload. The template identifies missing benchmark moves and unchanged closes separately.
+> Market Light averages US equity-index changes to measure direction. The index table shows the VIX separately as a volatility measure. Yahoo Finance index changes require two valid session closes.
 
 #### Other Configuration
 
@@ -1532,7 +1533,7 @@ FastAPI provides RESTful API service for configuration management and triggering
 For this feature, the product behavior is:
 
 - UI language is independent from generated-content language: `dsa.uiLanguage` (browser persistence) controls shell/login/settings text, while `REPORT_LANGUAGE` controls report text, report-page fixed copy, and Agent Chat replies that omit `context.report_language` (`zh`/`en`/`ko`).
-- `dsa.uiLanguage` follows local persistence -> browser language -> default `zh`.
+- The web interface uses the saved `dsa.uiLanguage` preference, with English as the default.
 - This change only adds request-scope report language override parameters; it does not modify `provider`, `model`, `base_url`, or migration/cleanup behavior.
 - PR-level verification output, screenshots, and command logs are maintained in PR description, not in this usage guide.
 

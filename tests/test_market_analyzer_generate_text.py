@@ -4013,6 +4013,33 @@ class TestMarketAnalyzerBypassFix:
         assert "### 1. Market Summary" not in result
         assert "US Market Recap" not in result
 
+    def test_english_us_review_localizes_provider_rows_across_outputs(self):
+        from src.core.market_profile import US_PROFILE
+        from src.core.market_strategy import get_market_strategy_blueprint
+        from src.market_analyzer import MarketIndex, MarketOverview
+
+        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
+        ma.region, ma.profile = "us", US_PROFILE
+        ma.config.report_language = "en"
+        ma.strategy = get_market_strategy_blueprint("us")
+        quote = MarketIndex(code="^GSPC", name="标普500指数", current=5200)
+        ma.data_manager = MagicMock()
+        ma.data_manager.get_main_indices.return_value = [dict(quote.to_dict(), prev_close=5200)]
+        overview = MarketOverview(date="2026-03-05", indices=ma._get_main_indices())
+        report = ma.generate_market_review(overview, [])
+        assert "S&P 500" in report
+        assert "unchanged benchmark close" in report
+        assert "标普500指数" not in ma._build_review_prompt(overview, [])
+        payload = ma.build_market_review_payload(overview, [], report)
+        assert payload["indices"][0]["name"] == "S&P 500"
+        assert payload["indices"][0]["code"] == "^GSPC"
+        overview.indices.append(MarketIndex(code="^VIX", name="VIX", current=20, change_pct=30))
+        snapshot = ma.build_market_light_snapshot(overview)
+        assert "average equity-index change +0.00%" in snapshot["reasons"]
+        assert snapshot["dimensions"]["index"]["score"] == 50
+        overview.indices.clear()
+        assert "benchmark move is unavailable" in ma.generate_market_review(overview, [])
+
     @pytest.mark.parametrize(
         ("region", "profile_name", "index_code", "index_name", "english_title", "zh_label"),
         [

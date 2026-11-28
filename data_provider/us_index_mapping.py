@@ -112,3 +112,21 @@ def get_us_index_yf_symbol(code: str) -> tuple:
     """
     normalized = (code or '').strip().upper()
     return US_INDEX_MAPPING.get(normalized, (None, None))
+
+
+_ENGLISH_INDEX_NAMES = {
+    '^GSPC': 'S&P 500',
+    '^DJI': 'Dow Jones Industrial Average',
+    '^IXIC': 'Nasdaq Composite',
+    '^NDX': 'Nasdaq-100',
+    '^VIX': 'Cboe Volatility Index (VIX)',
+    '^RUT': 'Russell 2000',
+}
+
+
+def get_us_index_display_name(code: str, language: str, provider_name: str) -> str:
+    """Localize recognized US indices without changing the provider's symbol."""
+    if language == 'en':
+        symbol, _ = get_us_index_yf_symbol(code)
+        return _ENGLISH_INDEX_NAMES.get(symbol, provider_name)
+    return provider_name

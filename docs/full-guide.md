@@ -150,8 +150,8 @@ daily_stock_analysis/
 > 说明：`REPORT_LANGUAGE` 影响报告文本、Web 报告页固定文案与未显式指定语言的 Agent Chat 回复；WebUI 页面语言（导航、登录页、侧边栏、设置页、通用控件）使用独立状态，不与其联动。
 > WebUI 语言状态保存在浏览器 `localStorage` 的 `dsa.uiLanguage`，启动顺序为：
 > 1) 明确选择（`localStorage.dsa.uiLanguage`，仅支持 `zh`/`en`）
-> 2) 浏览器语言检测（`navigator.languages` / `navigator.language`，`zh-*` 或 `en-*`）
-> 3) 默认回退 `zh`。
+> 2) 未保存选择时默认使用英文。美股大盘复盘设置 `REPORT_LANGUAGE=en` 时，在图表、报告和 API 中使用已知指数的英文名称。模板区分基准指数平收与缺少行情。
+> 美股市场信号灯以股票指数涨跌幅衡量方向，波动率指标 VIX 在指数表中单独展示。Yahoo Finance 指数涨跌幅需要两个有效的交易日收盘价。
 
 #### 其他配置
 
@@ -1695,7 +1695,7 @@ FastAPI 提供 RESTful API 服务，支持配置管理和触发分析。
 ### 与本变更相关的产品行为
 
 - Web 语言状态采用两层机制：`dsa.uiLanguage`（浏览器持久化）与 `REPORT_LANGUAGE`（报告及问股默认输出）解耦。
-  - `dsa.uiLanguage` 只决定 WebUI 文案与导航语言（`zh` / `en`），取值优先级为本地持久化值 -> 浏览器语言 -> 默认 `zh`。
+  - `dsa.uiLanguage` 只决定 WebUI 文案与导航语言（`zh` / `en`），未保存选择时默认使用英文。
   - `REPORT_LANGUAGE` 控制报告文本、股票简称本地化、报告页固定文案，以及未提供 `context.report_language` 的 Agent Chat 回复（`zh` / `en` / `ko`）。
 - 页面语言切换为用户体验增强，不属于回归验证证据记录范围；截图与命令请按 PR 流程在 PR 描述中单独维护。
 - 本改动仅新增请求级报告语言覆盖参数，不改变 `provider`/`model`/`base_url` 的配置迁移与清理逻辑。

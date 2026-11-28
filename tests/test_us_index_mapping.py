@@ -13,8 +13,16 @@ from us_index_mapping import (
     is_us_index_code,
     is_us_stock_code,
     get_us_index_yf_symbol,
+    get_us_index_display_name,
     US_INDEX_MAPPING,
 )
+
+
+def test_review_names_follow_index_identity_and_report_language():
+    assert get_us_index_display_name('nasdaq', 'en', '纳斯达克综合指数') == 'Nasdaq Composite'
+    assert get_us_index_display_name('^NDX', 'en', '纳斯达克100指数') == 'Nasdaq-100'
+    assert get_us_index_display_name('SPX', 'zh', '标普500') == '标普500'
+    assert get_us_index_display_name('OTHER', 'en', 'Provider index') == 'Provider index'
 
 
 class TestIsUsIndexCode(unittest.TestCase):
